@@ -3,8 +3,10 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './lib/auth';
 import LoginPage from './pages/LoginPage';
 import OrgListPage from './pages/OrgListPage';
+import WizardPage from './pages/WizardPage';
 import MembersPage from './pages/MembersPage';
 import TeamPage from './pages/TeamPage';
+import SettingsPage from './pages/SettingsPage';
 import InvitePage from './pages/InvitePage';
 
 export default function App() {
@@ -15,8 +17,10 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/invite/:token" element={<InvitePage />} />
           <Route path="/" element={<RequireAuth><OrgListPage /></RequireAuth>} />
+          <Route path="/new" element={<RequireAuth><WizardPage /></RequireAuth>} />
           <Route path="/o/:slug/members" element={<RequireAuth><MembersPage /></RequireAuth>} />
           <Route path="/o/:slug/team" element={<RequireAuth><TeamPage /></RequireAuth>} />
+          <Route path="/o/:slug/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

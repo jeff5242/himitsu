@@ -39,6 +39,23 @@ export interface Invitation {
   created_at: string;
 }
 
+export interface SettingsCatalogItem {
+  key: string;
+  category: string;
+  label: string;
+  description: string | null;
+  value_type: 'text' | 'number' | 'boolean' | 'json';
+  default_value: unknown;
+  sort: number;
+}
+
+export interface OrgSetting {
+  org_id: string;
+  key: string;
+  value: unknown;
+  updated_at: string;
+}
+
 export interface AuditEntry {
   id: number;
   org_id: string | null;

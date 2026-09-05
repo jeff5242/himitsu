@@ -67,64 +67,15 @@ export default function OrgListPage() {
           </ul>
         </section>
 
-        <CreateOrgCard onCreated={reload} />
+        <Link
+          to="/new"
+          className="block text-center rounded-xl border-2 border-dashed border-stone-300 py-4 text-stone-500 hover:border-amber-500 hover:text-amber-700"
+        >
+          ＋ 開新協會（精靈：名稱 → 代號 → LOGO → 主題色）
+        </Link>
         <SetPasswordCard />
       </div>
     </main>
-  );
-}
-
-function CreateOrgCard({ onCreated }: { onCreated: () => Promise<void> }) {
-  const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    setErrorMessage(null);
-    const { data, error } = await supabase.rpc('create_organization', {
-      p_name: name,
-      p_slug: slug,
-    });
-    if (error) {
-      setErrorMessage(error.message);
-      return;
-    }
-    const result = data as { ok: boolean; error?: string };
-    if (!result.ok) {
-      setErrorMessage(result.error === 'slug_taken' ? '這個代號已被使用' : (result.error ?? '建立失敗'));
-      return;
-    }
-    setName('');
-    setSlug('');
-    await onCreated();
-  };
-
-  return (
-    <section className="bg-white rounded-xl shadow p-5 space-y-3">
-      <h2 className="font-bold">建立新協會</h2>
-      <form onSubmit={handleSubmit} className="flex flex-wrap gap-2 text-sm">
-        <input
-          required
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="協會名稱"
-          className="flex-1 min-w-40 rounded border border-stone-300 px-3 py-2"
-        />
-        <input
-          required
-          value={slug}
-          onChange={(e) => setSlug(e.target.value.toLowerCase())}
-          placeholder="網址代號（英數）"
-          pattern="[a-z0-9][a-z0-9-]{1,40}"
-          className="w-44 rounded border border-stone-300 px-3 py-2"
-        />
-        <button type="submit" className="rounded bg-amber-600 px-4 py-2 font-bold text-white hover:bg-amber-700">
-          建立
-        </button>
-      </form>
-      {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
-    </section>
   );
 }
 
