@@ -141,7 +141,8 @@ BEGIN
   -- ── 一般個人會員：補到 80 筆會籍 ───────────────────────────────────
   i := 0;
   WHILE v_no <= 80 LOOP
-    v_name := v_surnames[1 + (i % 20)] || v_given[1 + ((i / 20 + (i % 20) * 3) % 20)];
+    -- 名字組合加位移，避免撞到刻意設計的「同名兩人」（陳志明）
+    v_name := v_surnames[1 + (i % 20)] || v_given[1 + ((i / 20 + (i % 20) * 3 + 5) % 20)];
     INSERT INTO himitsu.persons(org_id, name, mobile)
     VALUES (v_org, v_name, '09' || lpad((20000000 + i)::text, 8, '0')) RETURNING id INTO v_person;
     INSERT INTO himitsu.identities(org_id, person_id, kind)
