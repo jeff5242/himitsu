@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { fromEditable, toEditable } from '../lib/settingsValue';
 import type { SettingsCatalogItem } from '../lib/types';
 
 interface SettingRowProps {
@@ -107,29 +108,4 @@ export default function SettingRow({ item, overrideValue, canWrite, onSave, onRe
       )}
     </div>
   );
-}
-
-function toEditable(type: SettingsCatalogItem['value_type'], value: unknown): string {
-  if (type === 'text') return typeof value === 'string' ? value : '';
-  if (type === 'number') return typeof value === 'number' ? String(value) : '';
-  if (type === 'boolean') return value === true ? 'true' : 'false';
-  return JSON.stringify(value ?? null, null, 0);
-}
-
-function fromEditable(
-  type: SettingsCatalogItem['value_type'],
-  draft: string,
-): { value?: unknown; error?: string } {
-  if (type === 'text') return { value: draft };
-  if (type === 'number') {
-    const parsed = Number(draft);
-    if (draft.trim() === '' || Number.isNaN(parsed)) return { error: '請輸入數字' };
-    return { value: parsed };
-  }
-  if (type === 'boolean') return { value: draft === 'true' };
-  try {
-    return { value: JSON.parse(draft) };
-  } catch {
-    return { error: 'JSON 格式不正確' };
-  }
 }

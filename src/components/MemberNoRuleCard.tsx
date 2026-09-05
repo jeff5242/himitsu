@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react';
-
-interface MemberNoRule {
-  template: string;
-  pad: number;
-}
+import { formatMemberNo, parseRule } from '../lib/memberNo';
+import type { MemberNoRule } from '../lib/memberNo';
 
 interface MemberNoRuleCardProps {
   rule: unknown;
@@ -12,24 +9,6 @@ interface MemberNoRuleCardProps {
   canWrite: boolean;
   onSave: (value: MemberNoRule) => Promise<void>;
   onReset: () => Promise<void>;
-}
-
-const FALLBACK_RULE: MemberNoRule = { template: 'M{seq}', pad: 4 };
-
-function parseRule(value: unknown): MemberNoRule {
-  if (typeof value === 'object' && value !== null) {
-    const raw = value as Record<string, unknown>;
-    return {
-      template: typeof raw.template === 'string' ? raw.template : FALLBACK_RULE.template,
-      pad: typeof raw.pad === 'number' ? raw.pad : FALLBACK_RULE.pad,
-    };
-  }
-  return FALLBACK_RULE;
-}
-
-export function formatMemberNo(rule: MemberNoRule, seq: number): string {
-  const padded = seq.toString().padStart(Math.max(rule.pad, seq.toString().length), '0');
-  return rule.template.replace('{seq}', padded);
 }
 
 /** 會員編號規則卡（AC-7 操作點）：樣板＋補零位數＋下一號即時預覽 */
