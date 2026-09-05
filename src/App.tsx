@@ -1,34 +1,43 @@
-import { useEffect, useState } from 'react';
-import { supabase } from './lib/supabase';
+import type { ReactNode } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { AuthProvider, useAuth } from './lib/auth';
+import LoginPage from './pages/LoginPage';
+import OrgListPage from './pages/OrgListPage';
+import MembersPage from './pages/MembersPage';
+import TeamPage from './pages/TeamPage';
+import InvitePage from './pages/InvitePage';
 
 export default function App() {
-  const [status, setStatus] = useState<'checking' | 'ok' | 'error'>('checking');
-
-  useEffect(() => {
-    // 煙霧測試：能連上 himitsu schema 即為綠燈（表尚未建立時 404/42P01 也算連線成功）
-    supabase
-      .from('health')
-      .select('*')
-      .limit(1)
-      .then(({ error }) => {
-        if (!error || error.code === '42P01' || error.code === 'PGRST205') setStatus('ok');
-        else setStatus('error');
-      });
-  }, []);
-
   return (
-    <main className="min-h-screen bg-stone-50 text-stone-800 flex items-center justify-center">
-      <div className="text-center space-y-4 p-8">
-        <div className="text-6xl">🐝</div>
-        <h1 className="text-3xl font-black tracking-wide">HiMitsu</h1>
-        <p className="text-stone-500">公協會的 AI 秘書處作業系統</p>
-        <p className="text-sm">
-          Supabase（himitsu schema）：
-          {status === 'checking' && <span className="text-amber-600">連線中…</span>}
-          {status === 'ok' && <span className="text-green-700 font-bold">✓ 連線正常</span>}
-          {status === 'error' && <span className="text-red-600 font-bold">✗ 連線失敗</span>}
-        </p>
-      </div>
-    </main>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/invite/:token" element={<InvitePage />} />
+          <Route path="/" element={<RequireAuth><OrgListPage /></RequireAuth>} />
+          <Route path="/o/:slug/members" element={<RequireAuth><MembersPage /></RequireAuth>} />
+          <Route path="/o/:slug/team" element={<RequireAuth><TeamPage /></RequireAuth>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
+}
+
+function RequireAuth({ children }: { children: ReactNode }) {
+  const { session, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-stone-50 flex items-center justify-center text-stone-400">
+        載入中…
+      </main>
+    );
+  }
+  if (!session) {
+    const next = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?next=${next}`} replace />;
+  }
+  return <>{children}</>;
 }

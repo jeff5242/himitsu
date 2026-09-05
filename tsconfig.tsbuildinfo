@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/lib/supabase.ts"],"version":"5.9.3"}
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/audithistory.tsx","./src/components/orglayout.tsx","./src/hooks/useorg.ts","./src/lib/auth.tsx","./src/lib/roles.ts","./src/lib/supabase.ts","./src/lib/types.ts","./src/pages/invitepage.tsx","./src/pages/loginpage.tsx","./src/pages/memberspage.tsx","./src/pages/orglistpage.tsx","./src/pages/teampage.tsx"],"version":"5.9.3"}

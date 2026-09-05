@@ -21,7 +21,7 @@
 ## 進度
 - [x] L1 鷹架（CI／no-hardcode／init migration）
 - [x] L2 六表 Schema＋RLS —— migration `20260905000002_core_tables.sql`（待使用者貼 SQL Editor 執行）＋隔離測試 `supabase/tests/rls_isolation_test.sql`（含 AC-1/AC-4/AC-6 自動驗證，全程 ROLLBACK）
-- [ ] L3 Auth＋角色＋審計
+- [x] L3 Auth＋角色＋審計 —— migration `20260905000003_auth_roles.sql`（權限矩陣 role_permissions＋has_perm RLS 細分＋邀請流程 invitations/invite_user/accept_invitation＋owner 守衛；待使用者貼 SQL Editor 執行）＋測試 `supabase/tests/role_matrix_test.sql`（AC-3/AC-4 全自動驗證）＋前端（magic link＋密碼備援登入、協會清單、成員頁含審計歷史、團隊頁邀請流程、受邀頁 /invite/:token）
 - [ ] L4 租戶精靈＋設定中心
 - [ ] L5 種子資料＋成員清單（雙身分聚合）
 - [ ] L6 收尾（E2E／文件／TADA 欄位對照表）
