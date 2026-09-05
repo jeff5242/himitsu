@@ -20,7 +20,7 @@
 
 ## 進度
 - [x] L1 鷹架（CI／no-hardcode／init migration）
-- [ ] L2 六表 Schema＋RLS（organizations/org_users/persons/identities/memberships/rosters＋settings/audit）
+- [x] L2 六表 Schema＋RLS —— migration `20260905000002_core_tables.sql`（待使用者貼 SQL Editor 執行）＋隔離測試 `supabase/tests/rls_isolation_test.sql`（含 AC-1/AC-4/AC-6 自動驗證，全程 ROLLBACK）
 - [ ] L3 Auth＋角色＋審計
 - [ ] L4 租戶精靈＋設定中心
 - [ ] L5 種子資料＋成員清單（雙身分聚合）
