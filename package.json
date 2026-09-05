@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
-    "check:no-hardcode": "bash scripts/check-no-hardcode.sh"
+    "check:no-hardcode": "bash scripts/check-no-hardcode.sh",
+    "seed": "bash scripts/seed.sh"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

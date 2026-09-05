@@ -39,6 +39,46 @@ export interface Invitation {
   created_at: string;
 }
 
+export type IdentityKind =
+  | 'individual_member'
+  | 'group_rep'
+  | 'honorary'
+  | 'permanent'
+  | 'guest'
+  | 'staff';
+
+export type MembershipStatus =
+  | 'applying'
+  | 'active'
+  | 'renewal_due'
+  | 'honorary'
+  | 'permanent'
+  | 'withdrawn'
+  | 'expelled'
+  | 'hidden';
+
+export interface Membership {
+  id: string;
+  identity_id: string;
+  member_no: string;
+  member_type: 'individual' | 'group';
+  status: MembershipStatus;
+  joined_at: string | null;
+}
+
+export interface IdentityWithDetails {
+  id: string;
+  kind: IdentityKind;
+  title: string | null;
+  legal_entities: { name: string } | null;
+  memberships: Membership[];
+}
+
+/** 成員清單用：一個自然人聚合其所有身分與會籍（AC-5 雙身分聚合） */
+export interface PersonWithDetails extends Person {
+  identities: IdentityWithDetails[];
+}
+
 export interface SettingsCatalogItem {
   key: string;
   category: string;
