@@ -9,6 +9,7 @@ import TeamPage from './pages/TeamPage';
 import SettingsPage from './pages/SettingsPage';
 import EventsPage from './pages/EventsPage';
 import EventPage from './pages/EventPage';
+import TableScreenPage from './pages/TableScreenPage';
 import InvitePage from './pages/InvitePage';
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/o/:slug/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
           <Route path="/o/:slug/events" element={<RequireAuth><EventsPage /></RequireAuth>} />
           <Route path="/o/:slug/events/:eventId" element={<RequireAuth><EventPage /></RequireAuth>} />
+          <Route path="/o/:slug/events/:eventId/screen" element={<RequireAuth><TableScreenPage /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
