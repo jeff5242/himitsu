@@ -37,8 +37,9 @@ export default function EventPage() {
       supabase.from('events').select('*').eq('id', eventId).maybeSingle(),
       supabase.from('event_attendees').select(ATTENDEE_SELECT).eq('event_id', eventId).order('seq_no'),
     ]);
-    setEvent((eventRow as OrgEvent) ?? null);
-    setAttendees((attendeeRows as Attendee[]) ?? []);
+    // 離線時查詢會失敗——保留手上已有的名單（AC-13 報到台斷網不清空）
+    if (eventRow) setEvent(eventRow as OrgEvent);
+    if (attendeeRows) setAttendees(attendeeRows as Attendee[]);
   }, [org, eventId]);
 
   useEffect(() => {

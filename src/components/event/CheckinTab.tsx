@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useCheckinQueue } from '../../hooks/useCheckinQueue';
 import { attendeeAffiliation, groupByPerson } from '../../lib/attendee';
 import type { PersonGroup } from '../../lib/attendee';
 import { KIND_LABELS } from '../../lib/labels';
@@ -22,6 +23,13 @@ interface PickupRecord {
 type Channel = 'assist' | 'kiosk' | 'vip';
 
 const CHANNEL_LABELS: Record<Channel, string> = { assist: '服務台', kiosk: '自助機', vip: '貴賓' };
+
+const ERROR_LABELS: Record<string, string> = {
+  forbidden: '沒有報到權限',
+  event_not_open: '活動未開放報到',
+  removed: '此人已除名',
+  not_found: '找不到這筆名單',
+};
 
 interface CheckinTabProps {
   org: Organization;
@@ -52,12 +60,15 @@ export default function CheckinTab({ org, event, attendees, canCheckin, onChange
           .eq('org_id', org.id).eq('fee_periods.status', 'open').in('status', ['unpaid', 'reported']),
         supabase.rpc('get_setting', { p_org: org.id, p_key: 'checkin.require_paid' }),
       ]);
-    setItems((itemRows as PickupItem[]) ?? []);
-    setPickups((pickupRows as PickupRecord[]) ?? []);
-    setUnpaidMemberships(new Set(
-      ((unpaidRows as { membership_id: string }[] | null) ?? []).map((r) => r.membership_id),
-    ));
-    setRequiresPaid(requirePaidValue === true);
+    // 離線時查詢失敗——保留手上資料，不清空
+    if (itemRows) setItems(itemRows as PickupItem[]);
+    if (pickupRows) setPickups(pickupRows as PickupRecord[]);
+    if (unpaidRows) {
+      setUnpaidMemberships(new Set(
+        (unpaidRows as { membership_id: string }[]).map((r) => r.membership_id),
+      ));
+    }
+    if (requirePaidValue !== null) setRequiresPaid(requirePaidValue === true);
   }, [event.id, org.id]);
 
   useEffect(() => {
@@ -84,20 +95,19 @@ export default function CheckinTab({ org, event, attendees, canCheckin, onChange
     );
   }, [groups, query]);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     await Promise.all([onChanged(), reloadPickups()]);
-  };
+  }, [onChanged, reloadPickups]);
+
+  const { isOnline, queuedIds, pendingCount, checkIn, flush } = useCheckinQueue(event.id, refresh);
 
   const checkInAll = async (group: PersonGroup) => {
     setNotice(null);
     for (const attendee of group.attendees) {
-      if (attendee.checked_in_at) continue;
-      const { data, error } = await supabase.rpc('check_in', {
-        p_attendee: attendee.id, p_channel: channel,
-      });
-      const result = data as { ok: boolean; error?: string } | null;
-      if (error || !result?.ok) {
-        setNotice(`報到失敗：${error?.message ?? result?.error ?? '未知錯誤'}`);
+      if (attendee.checked_in_at || queuedIds.has(attendee.id)) continue;
+      const result = await checkIn(attendee.id, channel);
+      if (!result.ok) {
+        setNotice(`報到失敗：${ERROR_LABELS[result.error ?? ''] ?? result.error ?? '未知錯誤'}`);
         break;
       }
     }
@@ -152,6 +162,21 @@ export default function CheckinTab({ org, event, attendees, canCheckin, onChange
         </span>
       </div>
 
+      {!isOnline && (
+        <p className="rounded bg-amber-50 border border-amber-300 text-amber-800 text-sm px-3 py-2 font-bold">
+          📴 離線模式——可照常搜尋與報到，動作已排入本機佇列（{pendingCount} 筆），回網自動同步。
+          離線期間請勿重新整理頁面。
+        </p>
+      )}
+      {isOnline && pendingCount > 0 && (
+        <p className="rounded bg-blue-50 border border-blue-200 text-blue-700 text-sm px-3 py-2 flex items-center gap-3">
+          <span>待同步 {pendingCount} 筆離線報到</span>
+          <button onClick={() => void flush()} className="rounded border border-blue-300 px-2 py-1 hover:bg-blue-100">
+            立即同步
+          </button>
+        </p>
+      )}
+
       {canCheckin && <WalkinForm eventId={event.id} onAdded={refresh} />}
 
       {notice && (
@@ -163,7 +188,7 @@ export default function CheckinTab({ org, event, attendees, canCheckin, onChange
           <p className="text-sm text-stone-400">沒有符合的名單。</p>
         )}
         {visibleGroups.slice(0, 30).map((group) => {
-          const allCheckedIn = group.attendees.every((a) => a.checked_in_at);
+          const allCheckedIn = group.attendees.every((a) => a.checked_in_at || queuedIds.has(a.id));
           return (
             <section key={group.key}
               className={`bg-white rounded-xl shadow p-4 space-y-2 border-l-4 ${allCheckedIn ? 'border-green-600' : 'border-stone-200'}`}>
@@ -208,6 +233,8 @@ export default function CheckinTab({ org, event, attendees, canCheckin, onChange
                   )}
                   {attendee.checked_in_at ? (
                     <span className="text-green-700">✓ {new Date(attendee.checked_in_at).toLocaleTimeString('zh-TW')}</span>
+                  ) : queuedIds.has(attendee.id) ? (
+                    <span className="text-amber-700">⏳ 已報到（待同步）</span>
                   ) : (
                     <span className="text-stone-400">未報到</span>
                   )}
