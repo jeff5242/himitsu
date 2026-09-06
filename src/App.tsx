@@ -7,6 +7,8 @@ import WizardPage from './pages/WizardPage';
 import MembersPage from './pages/MembersPage';
 import TeamPage from './pages/TeamPage';
 import SettingsPage from './pages/SettingsPage';
+import EventsPage from './pages/EventsPage';
+import EventPage from './pages/EventPage';
 import InvitePage from './pages/InvitePage';
 
 export default function App() {
@@ -21,6 +23,8 @@ export default function App() {
           <Route path="/o/:slug/members" element={<RequireAuth><MembersPage /></RequireAuth>} />
           <Route path="/o/:slug/team" element={<RequireAuth><TeamPage /></RequireAuth>} />
           <Route path="/o/:slug/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
+          <Route path="/o/:slug/events" element={<RequireAuth><EventsPage /></RequireAuth>} />
+          <Route path="/o/:slug/events/:eventId" element={<RequireAuth><EventPage /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

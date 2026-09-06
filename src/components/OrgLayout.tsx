@@ -39,6 +39,7 @@ export default function OrgLayout({ org, myRole, children }: OrgLayoutProps) {
           )}
           <nav className="flex gap-1 ml-2">
             <NavLink to={`/o/${org.slug}/members`} className={TAB_CLASS}>成員</NavLink>
+            <NavLink to={`/o/${org.slug}/events`} className={TAB_CLASS}>活動</NavLink>
             <NavLink to={`/o/${org.slug}/team`} className={TAB_CLASS}>團隊</NavLink>
             <NavLink to={`/o/${org.slug}/settings`} className={TAB_CLASS}>設定</NavLink>
           </nav>

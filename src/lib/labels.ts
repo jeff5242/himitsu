@@ -1,4 +1,23 @@
-import type { IdentityKind, MembershipStatus } from './types';
+import type { EventKind, EventStatus, IdentityKind, MembershipStatus } from './types';
+
+export const EVENT_KIND_LABELS: Record<EventKind, string> = {
+  assembly: '會員大會',
+  meeting: '理監事會議',
+  banquet: '宴會',
+  other: '其他',
+};
+
+export const EVENT_STATUS_LABELS: Record<EventStatus, string> = {
+  draft: '籌備中',
+  open: '報到開放',
+  closed: '已結束',
+};
+
+export const EVENT_STATUS_BADGE_CLASS: Record<EventStatus, string> = {
+  draft: 'bg-stone-100 text-stone-500 border-stone-200',
+  open: 'bg-green-50 text-green-700 border-green-200',
+  closed: 'bg-stone-200 text-stone-500 border-stone-300',
+};
 
 export const KIND_LABELS: Record<IdentityKind, string> = {
   individual_member: '個人會員',

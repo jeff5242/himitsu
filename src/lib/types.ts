@@ -79,6 +79,46 @@ export interface PersonWithDetails extends Person {
   identities: IdentityWithDetails[];
 }
 
+export type EventKind = 'assembly' | 'meeting' | 'banquet' | 'other';
+export type EventStatus = 'draft' | 'open' | 'closed';
+
+export interface OrgEvent {
+  id: string;
+  org_id: string;
+  name: string;
+  kind: EventKind;
+  starts_at: string | null;
+  venue: string | null;
+  status: EventStatus;
+  note: string | null;
+  created_at: string;
+}
+
+export type AttendeeCategory = 'member' | 'guest' | 'walkin';
+
+/** 出席名單列（巢狀帶出身分→自然人/法人/會籍，供報到卡按 person 聚合） */
+export interface Attendee {
+  id: string;
+  event_id: string;
+  seq_no: number;
+  identity_id: string | null;
+  guest_name: string | null;
+  guest_org: string | null;
+  category: AttendeeCategory;
+  table_no: number | null;
+  source: 'import' | 'manual' | 'walkin';
+  checked_in_at: string | null;
+  removed_at: string | null;
+  identities: {
+    id: string;
+    kind: IdentityKind;
+    title: string | null;
+    persons: { id: string; name: string; mobile: string | null };
+    legal_entities: { name: string } | null;
+    memberships: { id: string; member_no: string; status: MembershipStatus }[];
+  } | null;
+}
+
 export interface SettingsCatalogItem {
   key: string;
   category: string;
