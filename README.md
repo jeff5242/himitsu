@@ -30,6 +30,10 @@ npm install
    - `..._core_tables.sql`（六表＋狀態機＋審計＋RLS）
    - `..._auth_roles.sql`（權限矩陣＋邀請流程）
    - `..._wizard_settings.sql`（設定目錄＋產號）
+   - `..._events.sql`（活動引擎＋序號終身制）
+   - `..._checkin.sql`（報到/領取＋walk-in RPC）
+   - `..._tables.sql`（宴會桌次＋容量防線）
+   - `..._fees.sql`（會費開繳/回報/確認＋報到連動）
 5. 驗證：貼上執行 `supabase/tests/` 下的測試（結果表格版直接看 Results；`*_results.sql` 優先）
 
 ### 3. 啟動與示範資料（3 分鐘）
@@ -56,6 +60,14 @@ SQL 層測試（貼 SQL Editor，全自動 PASS/FAIL）：
 - `supabase/tests/rls_isolation_test.sql` —— AC-1 租戶隔離、AC-6 狀態機終態
 - `supabase/tests/role_matrix_test.sql` —— AC-3 角色矩陣、AC-4 審計、邀請流程
 - `supabase/tests/settings_test_results.sql` —— AC-7 編號規則、設定隔離（表格版）
+- `supabase/tests/epic1_test_results.sql` —— AC-8~12 活動/報到/桌次/會費（表格版）
+
+## 功能地圖（EPIC-0＋EPIC-1）
+
+- 會員：person/identity 分離、雙身分聚合清單、審計歷史、邀請入職、七角色權限矩陣
+- 活動：活動引擎、名單匯入/來賓/walk-in、序號終身制、報到台（一鍵全報到＋領取發放）、
+  出席儀表板（三來源一總數）、宴會桌次（容量 DB 防線＋投影頁）、輕量離線報到（斷網佇列自動同步）
+- 會費：開繳批次（費率快照、榮譽/永久免繳）、回報/財務確認、未繳警示與領取鎖（可設定）
 
 ## 部署（berth / 任何靜態主機）
 

@@ -30,9 +30,11 @@
 EPIC-0 完成（AC-1~7 全數驗收）＋正式站上線 himitsu.milkidea.com（真人驗收過）。
 
 ### EPIC-1 現場與會費（AC-8~13，規格見上；SQL 測試一律用 pg_temp 結果表格版）
-- [ ] L7 活動引擎（events/attendees＋序號終身制 trigger＋活動頁）——AC-8
-- [ ] L8 報到與領取（checkin_log/pickups＋person 聚合報到台＋儀表板）——AC-9/AC-12
-- [ ] L9 宴會桌次（event_tables＋規劃器＋投影頁＋容量 DB 防線）——AC-10
-- [ ] L10 會費金流（fee_periods/invoices＋開繳精靈＋finance 確認台＋報到連動）——AC-11
-- [ ] L11 離線報到（PWA＋IndexedDB 佇列同步）——AC-13
-- [ ] L12 收尾（示範大會種子/E2E/文件/正式站重佈）
+- [x] L7 活動引擎 —— migration `20260906000005_events.sql`（序號終身制 trigger）＋活動頁/名單
+- [x] L8 報到與領取 —— `20260906000006_checkin.sql`（check_in/undo/add_walkin RPC、append-only）＋報到台/儀表板
+- [x] L9 宴會桌次 —— `20260906000007_tables.sql`（容量/桌數 DB 防線）＋桌次分頁/投影頁
+- [x] L10 會費金流 —— `20260906000008_fees.sql`（開繳/回報/確認 RPC、require_paid 領取鎖）＋會費頁/報到警示
+- [x] L11 離線報到 —— IndexedDB 佇列＋回網自動同步（AC-13 拔網線人工驗）
+- [x] L12 收尾 —— 合併測試 `supabase/tests/epic1_test_results.sql`（AC-8~12）、種子加示範大會＋年度會費、README
+
+以上四支 migration＋測試＋種子重跑「待使用者貼 SQL Editor 執行」；貼完後正式站重佈並人工驗收。

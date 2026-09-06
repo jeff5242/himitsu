@@ -1,11 +1,12 @@
 -- ============================================================================
--- HiMitsu 示範協會種子（AC-5）
+-- HiMitsu 示範協會種子（AC-5＋EPIC-1 示範大會）
 -- 用法：1. 把最後一行的 your@email.tld 改成「你登入 HiMitsu 用的 email」
 --       2. Supabase SQL Editor 整段貼上執行，Results 顯示建置統計
+-- 前置：需已執行 L2~L4 與 EPIC-1 四支 migration（events/checkin/tables/fees）。
 -- 可重複執行：每次先刪掉舊的示範協會（slug=demo）再重建。
--- 內容：80 筆會籍，含大會實戰的全部地雷型態——
---       雙身分（洪柏聲型）、榮譽/永久會員、團體 5 代表、同名兩人、
---       隱藏籍、待審核、待續會、退會、除籍。
+-- 內容：80 筆會籍（雙身分/榮譽/永久/團體5代表/同名/隱藏籍/待審核/待續會/退會/除籍）
+--       ＋一場「示範大會」（名單/來賓/桌次/領取項目/部分已報到）
+--       ＋一批「年度會費」（已入帳/待確認/未繳混合——報到台會亮未繳警示）。
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION pg_temp.himitsu_seed_demo(p_email TEXT)
@@ -158,6 +159,95 @@ BEGIN
   INSERT INTO himitsu.org_settings(org_id, key, value)
   VALUES (v_org, 'member_no.next_seq', to_jsonb(v_no));
 
+  -- ── EPIC-1 示範大會：名單＋來賓＋桌次＋領取項目＋部分報到 ─────────
+  DECLARE
+    v_event UUID; v_table INT := 1; v_seated INT := 0; v_row RECORD;
+  BEGIN
+    INSERT INTO himitsu.events(org_id, name, kind, starts_at, venue, status)
+    VALUES (v_org, '示範會員大會', 'assembly', NOW() + INTERVAL '7 days', '示範國際會議中心', 'open')
+    RETURNING id INTO v_event;
+
+    -- 名單：有效/榮譽/永久身分全掛（identity 各自一列——雙身分者兩列）
+    INSERT INTO himitsu.event_attendees(org_id, event_id, identity_id, category, source)
+    SELECT v_org, v_event, m.identity_id, 'member', 'import'
+      FROM himitsu.memberships m
+     WHERE m.org_id = v_org AND m.status IN ('active','honorary','permanent')
+     ORDER BY m.member_no;
+
+    INSERT INTO himitsu.event_attendees(org_id, event_id, category, source, guest_name, guest_org) VALUES
+     (v_org, v_event, 'guest', 'manual', '市府長官', '市政府'),
+     (v_org, v_event, 'guest', 'manual', '友會理事長', '友好協會');
+
+    -- 領取項目
+    INSERT INTO himitsu.pickup_items(org_id, event_id, key, label, sort) VALUES
+     (v_org, v_event, 'badge',  '名牌', 0),
+     (v_org, v_event, 'gift',   '禮品', 1),
+     (v_org, v_event, 'ballot', '選票', 2);
+
+    -- 桌次 8 桌（容量吃設定，預設 10）＋前 60 人依序入座
+    FOR v_table IN 1..8 LOOP
+      INSERT INTO himitsu.event_tables(org_id, event_id, table_no, label)
+      VALUES (v_org, v_event, v_table, CASE WHEN v_table = 1 THEN '貴賓桌' END);
+    END LOOP;
+    v_table := 1;
+    FOR v_row IN SELECT id FROM himitsu.event_attendees
+                  WHERE event_id = v_event ORDER BY seq_no LIMIT 60
+    LOOP
+      UPDATE himitsu.event_attendees SET table_no = v_table WHERE id = v_row.id;
+      v_seated := v_seated + 1;
+      IF v_seated % 8 = 0 THEN v_table := 1; ELSE v_table := v_table + 1; END IF;
+    END LOOP;
+
+    -- 前 15 位已報到（多通道混合），現場多一位 walk-in
+    FOR v_row IN SELECT id FROM himitsu.event_attendees
+                  WHERE event_id = v_event ORDER BY seq_no LIMIT 15
+    LOOP
+      INSERT INTO himitsu.checkin_log(org_id, event_id, attendee_id, channel)
+      VALUES (v_org, v_event, v_row.id,
+              CASE WHEN v_seated % 3 = 0 THEN 'kiosk' ELSE 'assist' END);
+      UPDATE himitsu.event_attendees SET checked_in_at = NOW() WHERE id = v_row.id;
+      v_seated := v_seated + 1;
+    END LOOP;
+    INSERT INTO himitsu.event_attendees(org_id, event_id, category, source, guest_name)
+    VALUES (v_org, v_event, 'walkin', 'walkin', '現場臨時·戊');
+  END;
+
+  -- ── EPIC-1 年度會費：混合狀態（未繳者在報到台會亮警示）─────────────
+  DECLARE
+    v_period UUID; v_i INT := 0; v_row RECORD;
+  BEGIN
+    INSERT INTO himitsu.fee_periods(org_id, name, due_date)
+    VALUES (v_org, '2026 年度會費', '2026-03-31') RETURNING id INTO v_period;
+
+    INSERT INTO himitsu.fee_invoices(org_id, period_id, membership_id, amount, status)
+    SELECT v_org, v_period, m.id,
+           CASE WHEN m.status IN ('honorary','permanent') THEN 0
+                WHEN m.member_type = 'individual'
+                  THEN COALESCE((himitsu.get_setting(v_org,'fees.individual_annual') #>> '{}')::numeric, 3000)
+                ELSE COALESCE((himitsu.get_setting(v_org,'fees.group_annual') #>> '{}')::numeric, 10000) END,
+           CASE WHEN m.status IN ('honorary','permanent') THEN 'waived' ELSE 'unpaid' END
+      FROM himitsu.memberships m
+     WHERE m.org_id = v_org AND m.status IN ('active','renewal_due','honorary','permanent');
+
+    -- 七成已入帳、一成已回報待確認、其餘未繳
+    FOR v_row IN SELECT id FROM himitsu.fee_invoices
+                  WHERE period_id = v_period AND status = 'unpaid' ORDER BY created_at
+    LOOP
+      v_i := v_i + 1;
+      IF v_i % 10 < 7 THEN
+        UPDATE himitsu.fee_invoices
+           SET status = 'confirmed', method = 'transfer', paid_at = NOW() - (v_i || ' days')::interval,
+               last5 = lpad((10000 + v_i * 37 % 90000)::text, 5, '0')
+         WHERE id = v_row.id;
+      ELSIF v_i % 10 = 7 THEN
+        UPDATE himitsu.fee_invoices
+           SET status = 'reported', method = 'transfer', reported_at = NOW(),
+               last5 = lpad((20000 + v_i * 41 % 70000)::text, 5, '0')
+         WHERE id = v_row.id;
+      END IF;
+    END LOOP;
+  END;
+
   -- ── 建置統計 ──────────────────────────────────────────────────────
   item := '協會'; result := '示範協會（/o/demo）已重建，你是 owner'; RETURN NEXT;
   SELECT count(*)::text INTO result FROM himitsu.memberships WHERE org_id = v_org;
@@ -173,6 +263,14 @@ BEGIN
   FOR item, result IN
     SELECT '狀態·' || m.status, count(*)::text
     FROM himitsu.memberships m WHERE m.org_id = v_org GROUP BY m.status ORDER BY 1
+  LOOP RETURN NEXT; END LOOP;
+
+  SELECT count(*)::text INTO result FROM himitsu.event_attendees a
+   JOIN himitsu.events e ON e.id = a.event_id WHERE e.org_id = v_org AND a.removed_at IS NULL;
+  item := '示範大會名單'; result := result || ' 人（8 桌、前 15 位已報到、含 walk-in）'; RETURN NEXT;
+  FOR item, result IN
+    SELECT '會費·' || i.status, count(*)::text
+    FROM himitsu.fee_invoices i WHERE i.org_id = v_org GROUP BY i.status ORDER BY 1
   LOOP RETURN NEXT; END LOOP;
 END $$;
 
