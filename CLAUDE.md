@@ -11,7 +11,7 @@
 - Vite + React 18 + TypeScript + Tailwind CSS v4
 - Supabase：REST 走 `Accept-Profile: himitsu`（client 已在 src/lib/supabase.ts 固定 db.schema）
 - Migration：supabase/migrations/*.sql，目前由使用者貼 SQL Editor 執行
-- 部署：EC2 berth（berth MCP）、deploy_type=docker（nginx serve 本機 build 的 dist，SPA fallback）、route=alb（milkidea.com DNS 在 GoDaddy 非 Cloudflare）；網域 himitsu.milkidea.com → CNAME 指 pony ALB
+- 部署：himitsu.milkidea.com → GoDaddy CNAME → CloudFront E1T70Y1UHDSN（jeff 帳號，掛現成 *.milkidea.com ACM 憑證，CachingDisabled＋AllViewer）→ HTTP → pony ALB（brian 帳號，*.sakilu.com 憑證不涵蓋本域，故 TLS 在 CloudFront 終結）→ berth EC2 docker（nginx serve 本機 build 的 dist，SPA fallback）。重佈：npm run build 後 berth deploy（type=docker、route=alb）即可，CloudFront 不快取 HTML 無需 invalidation
 
 ## 規格文件
 - 產品規劃：https://claude.ai/code/artifact/e668187e-a3f1-4f04-911d-b0426c1c8a15
