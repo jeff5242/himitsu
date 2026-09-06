@@ -14,8 +14,9 @@
 - 部署：himitsu.milkidea.com → GoDaddy CNAME → CloudFront E1T70Y1UHDSN（jeff 帳號，掛現成 *.milkidea.com ACM 憑證，CachingDisabled＋AllViewer）→ HTTP → pony ALB（brian 帳號，*.sakilu.com 憑證不涵蓋本域，故 TLS 在 CloudFront 終結）→ berth EC2 docker（nginx serve 本機 build 的 dist，SPA fallback）。重佈：npm run build 後 berth deploy（type=docker、route=alb）即可，CloudFront 不快取 HTML 無需 invalidation
 
 ## 規格文件
-- 產品規劃：https://claude.ai/code/artifact/e668187e-a3f1-4f04-911d-b0426c1c8a15
-- EPIC-0 地基規格（含 AC-1~7 驗收）：https://claude.ai/code/artifact/1eb7c3e7-0b50-4749-8fb3-7b49b80cb383
+- 產品規劃 v1.1（含加值服務層/定價草案）：https://claude.ai/code/artifact/e668187e-a3f1-4f04-911d-b0426c1c8a15
+- EPIC-0 地基規格（AC-1~7，已全數驗收）：https://claude.ai/code/artifact/1eb7c3e7-0b50-4749-8fb3-7b49b80cb383
+- EPIC-1 現場與會費規格（AC-8~13）：https://claude.ai/code/artifact/ee40a33a-00bd-46b4-ad78-a55cd426ad77
 - 大會實戰檢討（需求源頭）：https://claude.ai/code/artifact/3d363730-c3a4-4bad-8e8a-6c6f761964b7
 
 ## 進度
@@ -26,4 +27,12 @@
 - [x] L5 種子資料＋成員清單（雙身分聚合）—— 種子 `supabase/seed/demo_org.sql`（pg_temp 函式、80 會籍含全部地雷型態：雙身分/榮譽/永久/團體5代表/同名/隱藏籍/待審核/待續會/退會/除籍；可重複執行；`npm run seed` 複製到剪貼簿；使用者需改最後一行 email 再貼 SQL Editor）＋成員清單頁改為自然人聚合（身分徽章＋會籍狀態 chip＋搜尋＋統計列）
 - [x] L6 收尾 —— Vitest 單元測試（memberNo/settingsValue，12 tests）＋Playwright 煙霧 E2E（未登入 5 條，`npm run test:e2e`）＋README 重寫（從零 ≤15 分鐘含 Supabase 步驟與部署手冊）＋`docs/tada-field-mapping.md` 欄位對照表＋CI 加 npm test
 
-EPIC-0 完成。下一步：部署（berth、網域拼字待核對）→ EPIC-1（報到/繳費/宴會桌次）、官網與 LINE@ 屬加值服務層（見產品規劃）。
+EPIC-0 完成（AC-1~7 全數驗收）＋正式站上線 himitsu.milkidea.com（真人驗收過）。
+
+### EPIC-1 現場與會費（AC-8~13，規格見上；SQL 測試一律用 pg_temp 結果表格版）
+- [ ] L7 活動引擎（events/attendees＋序號終身制 trigger＋活動頁）——AC-8
+- [ ] L8 報到與領取（checkin_log/pickups＋person 聚合報到台＋儀表板）——AC-9/AC-12
+- [ ] L9 宴會桌次（event_tables＋規劃器＋投影頁＋容量 DB 防線）——AC-10
+- [ ] L10 會費金流（fee_periods/invoices＋開繳精靈＋finance 確認台＋報到連動）——AC-11
+- [ ] L11 離線報到（PWA＋IndexedDB 佇列同步）——AC-13
+- [ ] L12 收尾（示範大會種子/E2E/文件/正式站重佈）
