@@ -56,6 +56,26 @@ export default function TablesTab({ org, event, attendees, canWrite, onChanged }
     await onChanged();
   };
 
+  const swapTables = async (a: number, b: number) => {
+    const { data, error } = await supabase.rpc('swap_tables', {
+      p_event: event.id, p_a: a, p_b: b,
+    });
+    const result = data as { ok: boolean; error?: string; detail?: string } | null;
+    if (error || !result?.ok) {
+      setNotice(result?.detail ?? `互換失敗：${error?.message ?? result?.error ?? ''}`);
+    } else {
+      setNotice(null);
+    }
+    await onChanged();
+  };
+
+  const saveLabel = async (table: EventTable, label: string) => {
+    const { error } = await supabase
+      .from('event_tables').update({ label: label.trim() || null }).eq('id', table.id);
+    setNotice(error ? `桌名儲存失敗：${error.message}` : null);
+    await reloadTables();
+  };
+
   const removeTable = async (table: EventTable) => {
     if ((byTable.get(table.table_no)?.length ?? 0) > 0) {
       setNotice(`桌 ${table.table_no} 還有人入座，先移出再刪桌`);
@@ -96,11 +116,7 @@ export default function TablesTab({ org, event, attendees, canWrite, onChanged }
                 isFull ? 'border-red-400' : 'border-green-500'}`}>
               <div className="flex items-center gap-2">
                 <span className="font-black">桌 {table.table_no}</span>
-                {table.label && (
-                  <span className="text-xs rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-700">
-                    {table.label}
-                  </span>
-                )}
+                <TableLabel table={table} canWrite={canWrite} onSave={saveLabel} />
                 <span className={`ml-auto text-sm font-bold tabular-nums ${isFull ? 'text-red-600' : 'text-green-700'}`}>
                   {seated.length}／{table.capacity}
                 </span>
@@ -110,12 +126,39 @@ export default function TablesTab({ org, event, attendees, canWrite, onChanged }
                   <li key={attendee.id} className="flex items-center gap-2">
                     <span>{attendeeName(attendee)}</span>
                     {canWrite && (
-                      <button onClick={() => void assign(attendee.id, null)}
-                        className="ml-auto text-xs text-stone-400 hover:text-red-600">移出</button>
+                      <select
+                        value={String(table.table_no)}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          void assign(attendee.id, value === 'out' ? null : Number(value));
+                        }}
+                        className="ml-auto rounded border border-stone-200 px-1 py-0.5 text-xs text-stone-500 bg-white"
+                      >
+                        {tables.map((t) => (
+                          <option key={t.table_no} value={t.table_no}
+                            disabled={t.table_no !== table.table_no &&
+                              (byTable.get(t.table_no)?.length ?? 0) >= t.capacity}>
+                            桌 {t.table_no}{t.label ? `·${t.label}` : ''}
+                          </option>
+                        ))}
+                        <option value="out">— 移出 —</option>
+                      </select>
                     )}
                   </li>
                 ))}
               </ul>
+              {canWrite && seated.length > 0 && tables.length > 1 && (
+                <select value=""
+                  onChange={(e) => { if (e.target.value) void swapTables(table.table_no, Number(e.target.value)); }}
+                  className="w-full rounded border border-stone-200 px-2 py-1 text-xs text-stone-400 bg-stone-50">
+                  <option value="">⇄ 與另一桌整組互換…</option>
+                  {tables.filter((t) => t.table_no !== table.table_no).map((t) => (
+                    <option key={t.table_no} value={t.table_no}>
+                      桌 {t.table_no}{t.label ? `（${t.label}）` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
               {canWrite && !isFull && unassigned.length > 0 && (
                 <select
                   value=""
@@ -142,6 +185,47 @@ export default function TablesTab({ org, event, attendees, canWrite, onChanged }
         <p className="text-sm text-stone-400">還沒有桌次——先建桌，容量預設吃設定中心的「每桌人數」。</p>
       )}
     </div>
+  );
+}
+
+function TableLabel({
+  table, canWrite, onSave,
+}: { table: EventTable; canWrite: boolean; onSave: (table: EventTable, label: string) => Promise<void> }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState(table.label ?? '');
+
+  if (!canWrite) {
+    return table.label ? (
+      <span className="text-xs rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-700">
+        {table.label}
+      </span>
+    ) : null;
+  }
+
+  if (isEditing) {
+    return (
+      <form
+        onSubmit={(e) => { e.preventDefault(); void onSave(table, draft).then(() => setIsEditing(false)); }}
+        className="flex items-center gap-1"
+      >
+        <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
+          placeholder="桌名／團體名稱"
+          className="w-32 rounded border border-stone-300 px-2 py-0.5 text-xs" />
+        <button type="submit" className="text-xs text-amber-700 font-bold">存</button>
+        <button type="button" onClick={() => { setDraft(table.label ?? ''); setIsEditing(false); }}
+          className="text-xs text-stone-400">×</button>
+      </form>
+    );
+  }
+
+  return (
+    <button onClick={() => setIsEditing(true)}
+      className={`text-xs rounded-full border px-2 py-0.5 ${
+        table.label
+          ? 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
+          : 'border-dashed border-stone-300 text-stone-400 hover:text-stone-600'}`}>
+      {table.label ?? '＋桌名'}
+    </button>
   );
 }
 
