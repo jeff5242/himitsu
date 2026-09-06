@@ -11,7 +11,7 @@
 - Vite + React 18 + TypeScript + Tailwind CSS v4
 - Supabase：REST 走 `Accept-Profile: himitsu`（client 已在 src/lib/supabase.ts 固定 db.schema）
 - Migration：supabase/migrations/*.sql，目前由使用者貼 SQL Editor 執行
-- 部署：EC2 berth（berth MCP）；網域 himizsu.milkidea.com（拼字部署前再核對）
+- 部署：EC2 berth（berth MCP）、deploy_type=docker（nginx serve 本機 build 的 dist，SPA fallback）、route=alb（milkidea.com DNS 在 GoDaddy 非 Cloudflare）；網域 himitsu.milkidea.com → CNAME 指 pony ALB
 
 ## 規格文件
 - 產品規劃：https://claude.ai/code/artifact/e668187e-a3f1-4f04-911d-b0426c1c8a15
