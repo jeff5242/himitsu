@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { supabase } from '../../lib/supabase';
 import { attendeeAffiliation, attendeeName } from '../../lib/attendee';
@@ -53,6 +53,7 @@ export default function RosterTab({ org, event, attendees, canWrite, onChanged }
         <div className="grid gap-3 sm:grid-cols-2">
           <ImportMembersCard org={org} event={event} attendees={attendees} onDone={onChanged} />
           <AddGuestCard org={org} event={event} onDone={onChanged} />
+          <PickupItemsCard org={org} event={event} />
         </div>
       )}
 
@@ -173,6 +174,62 @@ function ImportMembersCard({
         {isImporting ? '匯入中…' : '匯入名單'}
       </button>
       {message && <p className="text-stone-600">{message}</p>}
+    </section>
+  );
+}
+
+function PickupItemsCard({ org, event }: { org: Organization; event: OrgEvent }) {
+  const [items, setItems] = useState<{ id: string; key: string; label: string }[]>([]);
+  const [label, setLabel] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
+
+  const reload = async () => {
+    const { data } = await supabase
+      .from('pickup_items').select('id, key, label').eq('event_id', event.id).order('sort');
+    setItems(data ?? []);
+  };
+
+  useEffect(() => {
+    void reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event.id]);
+
+  const addItem = async (formEvent: FormEvent) => {
+    formEvent.preventDefault();
+    const key = `p${Date.now().toString(36)}`;
+    const { error } = await supabase.from('pickup_items').insert({
+      org_id: org.id, event_id: event.id, key, label: label.trim(), sort: items.length,
+    });
+    if (error) { setMessage(`新增失敗：${error.message}`); return; }
+    setMessage(null);
+    setLabel('');
+    await reload();
+  };
+
+  const removeItem = async (id: string) => {
+    const { error } = await supabase.from('pickup_items').delete().eq('id', id);
+    if (error) setMessage(`刪除失敗：${error.message}`);
+    else await reload();
+  };
+
+  return (
+    <section className="bg-white rounded-xl shadow p-4 space-y-2 text-sm">
+      <h3 className="font-bold">領取項目（報到台發放用）</h3>
+      <div className="flex flex-wrap gap-2">
+        {items.length === 0 && <span className="text-stone-400">尚未定義——例如：名牌、禮品、選票</span>}
+        {items.map((item) => (
+          <span key={item.id} className="inline-flex items-center gap-1 rounded-full border border-stone-200 bg-stone-50 px-2.5 py-1">
+            {item.label}
+            <button onClick={() => void removeItem(item.id)} className="text-stone-400 hover:text-red-600">×</button>
+          </span>
+        ))}
+      </div>
+      <form onSubmit={addItem} className="flex gap-2">
+        <input required value={label} onChange={(e) => setLabel(e.target.value)} placeholder="項目名稱"
+          className="flex-1 rounded border border-stone-300 px-3 py-2" />
+        <button type="submit" className="rounded border border-stone-300 px-3 py-2 hover:bg-stone-100">新增</button>
+      </form>
+      {message && <p className="text-red-600">{message}</p>}
     </section>
   );
 }

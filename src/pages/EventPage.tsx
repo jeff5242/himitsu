@@ -4,15 +4,21 @@ import { supabase } from '../lib/supabase';
 import { useOrg } from '../hooks/useOrg';
 import OrgLayout from '../components/OrgLayout';
 import RosterTab from '../components/event/RosterTab';
+import CheckinTab from '../components/event/CheckinTab';
+import DashboardTab from '../components/event/DashboardTab';
 import { EVENT_STATUS_BADGE_CLASS, EVENT_STATUS_LABELS } from '../lib/labels';
 import type { Attendee, EventStatus, OrgEvent } from '../lib/types';
 
 const ATTENDEE_SELECT =
   '*, identities(id, kind, title, persons(id, name, mobile), legal_entities(name), memberships(id, member_no, status))';
 
-type TabKey = 'roster';
+type TabKey = 'roster' | 'checkin' | 'dashboard';
 
-const TABS: { key: TabKey; label: string }[] = [{ key: 'roster', label: '名單' }];
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'roster', label: '名單' },
+  { key: 'checkin', label: '報到台' },
+  { key: 'dashboard', label: '儀表板' },
+];
 
 /** 單一活動頁：名單／報到／桌次／儀表板（L7 先出名單，L8/L9 逐段掛上） */
 export default function EventPage() {
@@ -90,6 +96,10 @@ export default function EventPage() {
       {tab === 'roster' && (
         <RosterTab org={org} event={event} attendees={attendees} canWrite={can('events.write')} onChanged={reload} />
       )}
+      {tab === 'checkin' && (
+        <CheckinTab org={org} event={event} attendees={attendees} canCheckin={can('checkin.write')} onChanged={reload} />
+      )}
+      {tab === 'dashboard' && <DashboardTab event={event} attendees={attendees} />}
     </OrgLayout>
   );
 }
