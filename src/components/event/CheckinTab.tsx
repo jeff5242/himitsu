@@ -37,17 +37,28 @@ export default function CheckinTab({ org, event, attendees, canCheckin, onChange
   const [channel, setChannel] = useState<Channel>('assist');
   const [items, setItems] = useState<PickupItem[]>([]);
   const [pickups, setPickups] = useState<PickupRecord[]>([]);
+  const [unpaidMemberships, setUnpaidMemberships] = useState<ReadonlySet<string>>(new Set());
+  const [requiresPaid, setRequiresPaid] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   const reloadPickups = useCallback(async () => {
-    const [{ data: itemRows }, { data: pickupRows }] = await Promise.all([
-      supabase.from('pickup_items').select('id, key, label, sort').eq('event_id', event.id).order('sort'),
-      supabase.from('attendee_pickups').select('id, attendee_id, item_key')
-        .eq('event_id', event.id).is('undone_at', null),
-    ]);
+    const [{ data: itemRows }, { data: pickupRows }, { data: unpaidRows }, { data: requirePaidValue }] =
+      await Promise.all([
+        supabase.from('pickup_items').select('id, key, label, sort').eq('event_id', event.id).order('sort'),
+        supabase.from('attendee_pickups').select('id, attendee_id, item_key')
+          .eq('event_id', event.id).is('undone_at', null),
+        // 支柱④：開放中的開繳批次裡尚未入帳者 → 報到卡亮警示
+        supabase.from('fee_invoices').select('membership_id, fee_periods!inner(status)')
+          .eq('org_id', org.id).eq('fee_periods.status', 'open').in('status', ['unpaid', 'reported']),
+        supabase.rpc('get_setting', { p_org: org.id, p_key: 'checkin.require_paid' }),
+      ]);
     setItems((itemRows as PickupItem[]) ?? []);
     setPickups((pickupRows as PickupRecord[]) ?? []);
-  }, [event.id]);
+    setUnpaidMemberships(new Set(
+      ((unpaidRows as { membership_id: string }[] | null) ?? []).map((r) => r.membership_id),
+    ));
+    setRequiresPaid(requirePaidValue === true);
+  }, [event.id, org.id]);
 
   useEffect(() => {
     void reloadPickups();
@@ -188,6 +199,11 @@ export default function CheckinTab({ org, event, attendees, canCheckin, onChange
                   {attendee.table_no !== null && (
                     <span className="text-xs rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-700">
                       桌 {attendee.table_no}
+                    </span>
+                  )}
+                  {(attendee.identities?.memberships.some((m) => unpaidMemberships.has(m.id)) ?? false) && (
+                    <span className="text-xs rounded-full bg-red-50 border border-red-300 px-2 py-0.5 text-red-600 font-bold">
+                      未繳會費{requiresPaid ? '·領取鎖定' : ''}
                     </span>
                   )}
                   {attendee.checked_in_at ? (
