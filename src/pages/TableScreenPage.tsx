@@ -3,15 +3,21 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useOrg } from '../hooks/useOrg';
 import { attendeeName } from '../lib/attendee';
+import TableFloorView from '../components/event/TableFloorView';
+import type { EventTable } from '../components/event/TablesTab';
 import type { Attendee, OrgEvent } from '../lib/types';
 
-interface ScreenTable {
-  table_no: number;
-  capacity: number;
-  label: string | null;
-}
+type ScreenTable = EventTable;
 
 const REFRESH_MS = 30_000;
+
+type ScreenView = 'list' | 'floor';
+
+function loadScreenView(): ScreenView {
+  try {
+    return localStorage.getItem('himitsu:screenview') === 'floor' ? 'floor' : 'list';
+  } catch { return 'list'; }
+}
 
 /** 現場桌次投影頁：唯讀、大字級、自動更新（AC-10） */
 export default function TableScreenPage() {
@@ -21,12 +27,18 @@ export default function TableScreenPage() {
   const [tables, setTables] = useState<ScreenTable[]>([]);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [query, setQuery] = useState('');
+  const [view, setView] = useState<ScreenView>(loadScreenView);
+
+  const changeView = (next: ScreenView) => {
+    setView(next);
+    try { localStorage.setItem('himitsu:screenview', next); } catch { /* 忽略 */ }
+  };
 
   const reload = useCallback(async () => {
     if (!org || !eventId) return;
     const [{ data: eventRow }, { data: tableRows }, { data: attendeeRows }] = await Promise.all([
       supabase.from('events').select('*').eq('id', eventId).maybeSingle(),
-      supabase.from('event_tables').select('table_no, capacity, label').eq('event_id', eventId).order('table_no'),
+      supabase.from('event_tables').select('id, table_no, capacity, label').eq('event_id', eventId).order('table_no'),
       supabase.from('event_attendees')
         .select('*, identities(id, kind, title, persons(id, name, mobile), legal_entities(name), memberships(id, member_no, status))')
         .eq('event_id', eventId).not('table_no', 'is', null).is('removed_at', null),
@@ -59,6 +71,14 @@ export default function TableScreenPage() {
     <main className="min-h-screen bg-stone-900 text-stone-100 p-6">
       <div className="flex flex-wrap items-center gap-4 mb-6">
         <h1 className="text-3xl font-black">{event?.name ?? ''}｜桌次表</h1>
+        <span className="flex rounded-lg overflow-hidden border border-stone-600">
+          {(['list', 'floor'] as ScreenView[]).map((key) => (
+            <button key={key} onClick={() => changeView(key)}
+              className={`px-4 py-2 text-lg ${view === key ? 'bg-amber-500 text-stone-900 font-black' : 'bg-stone-800 hover:bg-stone-700'}`}>
+              {key === 'list' ? '列表' : '平面圖'}
+            </button>
+          ))}
+        </span>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -66,6 +86,12 @@ export default function TableScreenPage() {
           className="ml-auto rounded-lg bg-stone-800 border border-stone-600 px-4 py-2 text-lg placeholder-stone-500"
         />
       </div>
+
+      {view === 'floor' && (
+        <TableFloorView tables={tables} byTable={byTable} isDark query={highlight} />
+      )}
+
+      {view === 'list' && (
       <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
         {tables.map((table) => {
           const seated = byTable.get(table.table_no) ?? [];
@@ -91,6 +117,7 @@ export default function TableScreenPage() {
           );
         })}
       </div>
+      )}
       {tables.length === 0 && <p className="text-stone-500 text-xl">尚未建立桌次。</p>}
     </main>
   );

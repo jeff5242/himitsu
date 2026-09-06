@@ -3,7 +3,20 @@ import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { attendeeName } from '../../lib/attendee';
+import TableFloorView from './TableFloorView';
 import type { Attendee, Organization, OrgEvent } from '../../lib/types';
+
+type TableView = 'cards' | 'floor' | 'list';
+
+const VIEW_LABELS: Record<TableView, string> = { cards: '圓桌卡', floor: '平面圖', list: '清單' };
+
+function loadViewPreference(orgId: string): TableView {
+  try {
+    const saved = localStorage.getItem(`himitsu:tableview:${orgId}`);
+    if (saved === 'cards' || saved === 'floor' || saved === 'list') return saved;
+  } catch { /* 私密視窗等環境忽略 */ }
+  return 'cards';
+}
 
 export interface EventTable {
   id: string;
@@ -24,6 +37,12 @@ interface TablesTabProps {
 export default function TablesTab({ org, event, attendees, canWrite, onChanged }: TablesTabProps) {
   const [tables, setTables] = useState<EventTable[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [view, setView] = useState<TableView>(() => loadViewPreference(org.id));
+
+  const changeView = (next: TableView) => {
+    setView(next);
+    try { localStorage.setItem(`himitsu:tableview:${org.id}`, next); } catch { /* 忽略 */ }
+  };
 
   const reloadTables = useCallback(async () => {
     const { data } = await supabase
@@ -92,6 +111,14 @@ export default function TablesTab({ org, event, attendees, canWrite, onChanged }
         <span className="text-stone-500">
           {tables.length} 桌／未排桌 {unassigned.length} 人
         </span>
+        <span className="flex rounded border border-stone-300 overflow-hidden">
+          {(Object.keys(VIEW_LABELS) as TableView[]).map((key) => (
+            <button key={key} onClick={() => changeView(key)}
+              className={`px-3 py-1.5 ${view === key ? 'bg-amber-600 text-white font-bold' : 'bg-white hover:bg-stone-50'}`}>
+              {VIEW_LABELS[key]}
+            </button>
+          ))}
+        </span>
         <Link to={`/o/${org.slug}/events/${event.id}/screen`} target="_blank"
           className="ml-auto rounded border border-stone-300 px-3 py-1.5 hover:bg-stone-100">
           🖥 開啟現場投影頁
@@ -106,7 +133,41 @@ export default function TablesTab({ org, event, attendees, canWrite, onChanged }
         <p className="rounded bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{notice}</p>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {view === 'floor' && (
+        <div className="bg-white rounded-xl shadow p-6">
+          <TableFloorView tables={tables} byTable={byTable} onSelect={() => changeView('cards')} />
+          <p className="text-xs text-stone-400 mt-4">
+            ● 綠＝已報到、灰＝已入座未報到、空心＝空位；點桌子切回圓桌卡操作。滑鼠停在點上可看姓名。
+          </p>
+        </div>
+      )}
+
+      {view === 'list' && (
+        <section className="bg-white rounded-xl shadow divide-y divide-stone-100 text-sm">
+          {tables.map((table) => {
+            const seated = byTable.get(table.table_no) ?? [];
+            return (
+              <div key={table.id} className="p-3 flex flex-wrap items-baseline gap-3">
+                <span className="font-black w-14">桌 {table.table_no}</span>
+                {table.label && (
+                  <span className="text-xs rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-700">
+                    {table.label}
+                  </span>
+                )}
+                <span className={`text-xs font-bold tabular-nums ${
+                  seated.length >= table.capacity ? 'text-red-600' : 'text-green-700'}`}>
+                  {seated.length}／{table.capacity}
+                </span>
+                <span className="text-stone-600 flex-1 min-w-64">
+                  {seated.map((a) => attendeeName(a)).join('、') || '（空桌）'}
+                </span>
+              </div>
+            );
+          })}
+        </section>
+      )}
+
+      {view === 'cards' && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {tables.map((table) => {
           const seated = byTable.get(table.table_no) ?? [];
           const isFull = seated.length >= table.capacity;
@@ -180,7 +241,7 @@ export default function TablesTab({ org, event, attendees, canWrite, onChanged }
             </section>
           );
         })}
-      </div>
+      </div>}
       {tables.length === 0 && (
         <p className="text-sm text-stone-400">還沒有桌次——先建桌，容量預設吃設定中心的「每桌人數」。</p>
       )}
