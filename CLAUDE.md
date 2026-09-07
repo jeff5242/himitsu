@@ -17,6 +17,7 @@
 - 產品規劃 v1.1（含加值服務層/定價草案）：https://claude.ai/code/artifact/e668187e-a3f1-4f04-911d-b0426c1c8a15
 - EPIC-0 地基規格（AC-1~7，已全數驗收）：https://claude.ai/code/artifact/1eb7c3e7-0b50-4749-8fb3-7b49b80cb383
 - EPIC-1 現場與會費規格（AC-8~13）：https://claude.ai/code/artifact/ee40a33a-00bd-46b4-ad78-a55cd426ad77
+- EPIC-2 離線報到機規格（AC-14~19）：https://claude.ai/code/artifact/88d78a72-647a-495c-8973-945bb88b722b
 - 大會實戰檢討（需求源頭）：https://claude.ai/code/artifact/3d363730-c3a4-4bad-8e8a-6c6f761964b7
 
 ## 進度
@@ -37,4 +38,11 @@ EPIC-0 完成（AC-1~7 全數驗收）＋正式站上線 himitsu.milkidea.com（
 - [x] L11 離線報到 —— IndexedDB 佇列＋回網自動同步（AC-13 拔網線人工驗）
 - [x] L12 收尾 —— 合併測試 `supabase/tests/epic1_test_results.sql`（AC-8~12）、種子加示範大會＋年度會費、README
 
-以上四支 migration＋測試＋種子重跑「待使用者貼 SQL Editor 執行」；貼完後正式站重佈並人工驗收。
+EPIC-1 已全數驗收（SQL 測試全 PASS＋正式站人工實測；桌次追加：換桌/兩桌互換/桌名編輯/三種檢視＋平面圖）。
+
+### EPIC-2 離線報到機（AC-14~19，規格見上；裝置＝kiosk 專用帳號，不用 Edge Function）
+- [ ] L13 裝置地基（devices/device_codes＋kiosk 角色＋註冊/心跳 RPC＋後台裝置分頁）——AC-14/17
+- [ ] L14 agent 核心（kiosk-agent.py：同步迴圈/SQLite/本地 API/佇列/離線開關）——AC-15
+- [ ] L15 kiosk 模式（報到台 AgentClient 資料層＋SPA 資產快取）——AC-16
+- [ ] L16 merge＋佈署包（兩機對打驗收＋樹莓派 scripts/kiosk/＋文件）——AC-18/19
+（TADA repo 的 kiosk 實作唯讀參考，程式在本 repo 重寫多租戶版）
