@@ -35,4 +35,11 @@ test.describe('未登入煙霧測試', () => {
     await page.goto('/no-such-page');
     await expect(page).toHaveURL(/\/login/);
   });
+
+  test('kiosk page loads without auth and guides when local agent is absent', async ({ page }) => {
+    await page.goto('/kiosk');
+    await expect(page).toHaveURL(/\/kiosk/); // 免登入：不得被導去 /login
+    await expect(page.getByText('找不到本地代理')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('kiosk-agent.py run')).toBeVisible();
+  });
 });
