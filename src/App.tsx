@@ -13,6 +13,7 @@ import TableScreenPage from './pages/TableScreenPage';
 import FeesPage from './pages/FeesPage';
 import DevicesPage from './pages/DevicesPage';
 import InvitePage from './pages/InvitePage';
+import KioskPage from './pages/KioskPage';
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/invite/:token" element={<InvitePage />} />
+          <Route path="/kiosk" element={<KioskPage />} />
           <Route path="/" element={<RequireAuth><OrgListPage /></RequireAuth>} />
           <Route path="/new" element={<RequireAuth><WizardPage /></RequireAuth>} />
           <Route path="/o/:slug/members" element={<RequireAuth><MembersPage /></RequireAuth>} />
