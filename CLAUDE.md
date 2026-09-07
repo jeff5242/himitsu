@@ -41,8 +41,9 @@ EPIC-0 完成（AC-1~7 全數驗收）＋正式站上線 himitsu.milkidea.com（
 EPIC-1 已全數驗收（SQL 測試全 PASS＋正式站人工實測；桌次追加：換桌/兩桌互換/桌名編輯/三種檢視＋平面圖）。
 
 ### EPIC-2 離線報到機（AC-14~19，規格見上；裝置＝kiosk 專用帳號，不用 Edge Function）
-- [ ] L13 裝置地基（devices/device_codes＋kiosk 角色＋註冊/心跳 RPC＋後台裝置分頁）——AC-14/17
-- [ ] L14 agent 核心（kiosk-agent.py：同步迴圈/SQLite/本地 API/佇列/離線開關）——AC-15
-- [ ] L15 kiosk 模式（報到台 AgentClient 資料層＋SPA 資產快取）——AC-16
-- [ ] L16 merge＋佈署包（兩機對打驗收＋樹莓派 scripts/kiosk/＋文件）——AC-18/19
-（TADA repo 的 kiosk 實作唯讀參考，程式在本 repo 重寫多租戶版）
+- [x] L13 裝置地基 —— migration `20260907000010_devices.sql`（kiosk 角色/註冊碼/register_device 建帳號/device_heartbeat 遙控）＋後台「裝置」分頁
+- [x] L14 agent 核心 —— `scripts/kiosk/kiosk-agent.py`（stdlib+SQLite；同步迴圈/快照+SPA 資產快取/佇列回放 merge/KIOSK_OFFLINE_FLAG 可覆寫的強制離線開關）
+- [x] L15 kiosk 模式 —— `/kiosk` 免登入路由＋agentClient（觸控大按鈕、離線橫幅、未繳鎖）
+- [x] L16 merge＋佈署包 —— `merge_test.py` 兩實例對打（AC-18 自動 PASS/FAIL）、`kiosk-start.sh`、`docs/kiosk-deploy.md`（雙螢幕/低電壓血淚教訓）、SQL 測試 `epic2_test_results.sql`（AC-14/17）
+
+待使用者：貼 migration `..._devices.sql`＋測試 `epic2_test_results.sql`；本機雙終端實測 AC-15/16/18（步驟見 docs/kiosk-deploy.md）。

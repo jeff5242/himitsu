@@ -34,6 +34,8 @@ npm install
    - `..._checkin.sql`（報到/領取＋walk-in RPC）
    - `..._tables.sql`（宴會桌次＋容量防線）
    - `..._fees.sql`（會費開繳/回報/確認＋報到連動）
+   - `..._table_swap.sql`（兩桌互換 RPC）
+   - `..._devices.sql`（報到機裝置：kiosk 帳號/註冊碼/心跳）
 5. 驗證：貼上執行 `supabase/tests/` 下的測試（結果表格版直接看 Results；`*_results.sql` 優先）
 
 ### 3. 啟動與示範資料（3 分鐘）
@@ -61,6 +63,7 @@ SQL 層測試（貼 SQL Editor，全自動 PASS/FAIL）：
 - `supabase/tests/role_matrix_test.sql` —— AC-3 角色矩陣、AC-4 審計、邀請流程
 - `supabase/tests/settings_test_results.sql` —— AC-7 編號規則、設定隔離（表格版）
 - `supabase/tests/epic1_test_results.sql` —— AC-8~12 活動/報到/桌次/會費（表格版）
+- `supabase/tests/epic2_test_results.sql` —— AC-14/17 裝置註冊/心跳/遙控（表格版）
 
 ## 功能地圖（EPIC-0＋EPIC-1）
 
@@ -68,6 +71,8 @@ SQL 層測試（貼 SQL Editor，全自動 PASS/FAIL）：
 - 活動：活動引擎、名單匯入/來賓/walk-in、序號終身制、報到台（一鍵全報到＋領取發放）、
   出席儀表板（三來源一總數）、宴會桌次（容量 DB 防線＋投影頁）、輕量離線報到（斷網佇列自動同步）
 - 會費：開繳批次（費率快照、榮譽/永久免繳）、回報/財務確認、未繳警示與領取鎖（可設定）
+- 報到機：local-first 本地代理（`scripts/kiosk/`，斷網照常、復線自動回放、兩機 merge）、
+  後台裝置管理（註冊碼/心跳燈/遙控/場次綁定）——佈署見 `docs/kiosk-deploy.md`
 
 ## 部署（berth / 任何靜態主機）
 

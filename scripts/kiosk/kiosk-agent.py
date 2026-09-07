@@ -30,7 +30,8 @@ import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 AGENT_VERSION = "1.0.0"
-OFFLINE_FLAG = "/tmp/kiosk-agent-offline"
+# 強制離線旗標檔；KIOSK_OFFLINE_FLAG 環境變數可覆寫（兩實例 merge 測試各自控制）
+OFFLINE_FLAG = os.environ.get("KIOSK_OFFLINE_FLAG", "/tmp/kiosk-agent-offline")
 SYNC_INTERVAL = 10          # 秒
 SNAPSHOT_INTERVAL = 60      # 秒（managed 時）
 PROBE_TIMEOUT = 4           # 秒
