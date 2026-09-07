@@ -23,6 +23,7 @@ export default function TeamPage() {
       .from('org_users')
       .select('*')
       .eq('org_id', org.id)
+      .neq('role', 'kiosk')   // 報到機帳號在「裝置」分頁管理，不混進團隊
       .order('created_at');
     setMembers((memberRows as OrgUser[]) ?? []);
 
