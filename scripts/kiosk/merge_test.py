@@ -7,6 +7,7 @@
 #       → 驗證 server：有效報到 1 筆、發放聯集不重複、兩機佇列歸零。
 # ============================================================================
 import argparse
+import importlib.util
 import json
 import os
 import subprocess
@@ -21,6 +22,17 @@ AGENT = os.path.join(HERE, "kiosk-agent.py")
 results = []
 
 
+def load_agent_module():
+    """agent 檔名含連字號無法直接 import——用 importlib 由路徑載入，共用其 SSL_CTX"""
+    spec = importlib.util.spec_from_file_location("kiosk_agent", AGENT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+SSL_CTX = load_agent_module().SSL_CTX
+
+
 def check(name, ok, detail=""):
     results.append((name, ok, detail))
     print(("PASS" if ok else "FAIL"), name, detail, flush=True)
@@ -31,7 +43,7 @@ def http_json(method, url, body=None, headers=None, timeout=10):
     req = urllib.request.Request(url, data=data, method=method,
                                  headers={"Content-Type": "application/json",
                                           **(headers or {})})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout, context=SSL_CTX) as resp:
         raw = resp.read()
         return json.loads(raw) if raw else None
 

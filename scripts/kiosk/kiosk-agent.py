@@ -20,6 +20,7 @@ import os
 import re
 import socket
 import sqlite3
+import ssl
 import sys
 import threading
 import time
@@ -43,6 +44,37 @@ ATTENDEE_SELECT = ("*,identities(id,kind,title,persons(id,name,mobile),"
 
 def log(msg):
     print(time.strftime("%H:%M:%S"), msg, flush=True)
+
+
+def make_ssl_context():
+    """macOS 的 python.org 版 Python 自帶 OpenSSL 憑證目錄是空的（HTTPS 全部驗不過），
+    樹莓派/Linux 則正常。這裡在根憑證掛零時自動改用系統憑證包。"""
+    ctx = ssl.create_default_context()
+    try:
+        if ctx.cert_store_stats().get("x509_ca", 0) > 0:
+            return ctx
+    except Exception:
+        return ctx
+    for path in ("/etc/ssl/cert.pem",                    # macOS
+                 "/etc/ssl/certs/ca-certificates.crt",   # Debian/樹莓派
+                 "/etc/pki/tls/certs/ca-bundle.crt"):    # RHEL
+        if os.path.exists(path):
+            try:
+                ctx.load_verify_locations(cafile=path)
+                log("使用系統憑證包：%s" % path)
+                return ctx
+            except Exception:
+                continue
+    try:
+        import certifi
+        ctx.load_verify_locations(cafile=certifi.where())
+    except Exception:
+        log("警告：找不到根憑證——若 HTTPS 失敗，請執行 "
+            "'/Applications/Python 3.x/Install Certificates.command'")
+    return ctx
+
+
+SSL_CTX = make_ssl_context()
 
 
 # ── 設定與資料庫 ─────────────────────────────────────────────────────────
@@ -205,7 +237,7 @@ class Cloud:
         data = json.dumps(body).encode() if body is not None else None
         req = urllib.request.Request(url, data=data, method=method,
                                      headers=headers or {})
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout, context=SSL_CTX) as resp:
             raw = resp.read()
             return resp.status, json.loads(raw) if raw else None
 
@@ -213,7 +245,7 @@ class Cloud:
         try:
             req = urllib.request.Request(self.cfg["supabase_url"] + "/auth/v1/health",
                                          headers={"apikey": self.cfg["anon_key"]})
-            urllib.request.urlopen(req, timeout=PROBE_TIMEOUT).read()
+            urllib.request.urlopen(req, timeout=PROBE_TIMEOUT, context=SSL_CTX).read()
             return True
         except Exception:
             return False
@@ -272,7 +304,7 @@ class Cloud:
 
     def fetch_raw(self, url, timeout=20):
         req = urllib.request.Request(url)
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout, context=SSL_CTX) as resp:
             return resp.read(), resp.headers.get("Content-Type", "")
 
 
@@ -566,7 +598,7 @@ def cmd_register(args):
         data=json.dumps(payload).encode(), method="POST",
         headers={"apikey": args.anon_key, "Content-Type": "application/json",
                  "Content-Profile": "himitsu"})
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with urllib.request.urlopen(req, timeout=15, context=SSL_CTX) as resp:
         result = json.loads(resp.read())
     if not result.get("ok"):
         print("註冊失敗：%s" % result.get("error"))
