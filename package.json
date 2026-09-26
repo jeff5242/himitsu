@@ -11,7 +11,8 @@
     "check:no-hardcode": "bash scripts/check-no-hardcode.sh",
     "seed": "bash scripts/seed.sh",
     "test": "vitest run --dir src",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:agent": "python3 -m unittest discover -s scripts/kiosk/tests"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

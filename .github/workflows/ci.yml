@@ -13,6 +13,8 @@ jobs:
       - run: npm run check:no-hardcode
       - run: npm run typecheck
       - run: npm test
+      - name: 報到機 agent 離線邏輯測試（stdlib，無需 pip）
+        run: python3 -m unittest discover -s scripts/kiosk/tests -v
       - run: npm run build
         env:
           VITE_SUPABASE_URL: https://placeholder.example.com

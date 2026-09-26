@@ -53,6 +53,7 @@ npm run seed                 # 複製種子 SQL 到剪貼簿 → 改最後一行
 | `npm run dev` | 開發伺服器 |
 | `npm run build` | 型別檢查＋打包 |
 | `npm test` | Vitest 單元測試 |
+| `npm run test:agent` | 報到機 agent 離線邏輯測試（stdlib，17 條） |
 | `npm run test:e2e` | Playwright 煙霧測試（未登入頁面，不寫資料） |
 | `npm run check:no-hardcode` | 掃描寫死連線（CI 防線） |
 | `npm run seed` | 示範協會種子（複製到剪貼簿） |
