@@ -53,7 +53,7 @@ export default function OrgListPage() {
                     to={`/o/${org.slug}/members`}
                     className="rounded bg-amber-600 px-3 py-1.5 text-white hover:bg-amber-700"
                   >
-                    成員
+                    會員
                   </Link>
                   <Link
                     to={`/o/${org.slug}/team`}

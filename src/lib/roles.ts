@@ -32,7 +32,7 @@ export const INVITE_ERROR_MESSAGES: Record<string, string> = {
   forbidden: '沒有帳號管理權限',
   invalid_email: 'Email 格式不正確',
   invalid_role: '角色不正確',
-  already_member: '這個 Email 已是協會成員',
+  already_member: '這個 Email 已經有團隊帳號',
   not_found: '邀請不存在',
   accepted: '這份邀請已被使用',
   revoked: '這份邀請已被作廢',

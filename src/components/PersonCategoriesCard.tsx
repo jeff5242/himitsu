@@ -63,7 +63,7 @@ export default function PersonCategoriesCard({ orgId, canWrite }: PersonCategori
       <div>
         <h3 className="font-bold">人員分類</h3>
         <p className="text-xs text-stone-500">
-          會員庫的成員可以勾選多個分類（例如農民、貴賓、農會代表）。活動名單可以依分類一次匯入。
+          每位會員可以勾選多個分類（例如農民、貴賓、農會代表）。活動名單可以依分類一次匯入。
         </p>
       </div>
       <ul className="flex flex-wrap gap-2">
@@ -79,7 +79,7 @@ export default function PersonCategoriesCard({ orgId, canWrite }: PersonCategori
               </>
             ) : confirmingId === c.id ? (
               <>
-                <span className="text-red-700">刪除「{c.name}」？成員身上的這個分類也會移除</span>
+                <span className="text-red-700">刪除「{c.name}」？會員身上的這個分類也會移除</span>
                 <button type="button" onClick={() => void remove(c.id)} className="font-bold text-red-700">確定刪除</button>
                 <button type="button" onClick={() => setConfirmingId(null)} className="text-stone-500">取消</button>
               </>

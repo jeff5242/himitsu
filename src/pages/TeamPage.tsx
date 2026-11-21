@@ -103,7 +103,7 @@ function InviteForm({ orgId, onSent }: { orgId: string; onSent: () => Promise<vo
 
   return (
     <section className="bg-white rounded-xl shadow p-5 space-y-3">
-      <h3 className="font-bold">邀請成員</h3>
+      <h3 className="font-bold">邀請帳號</h3>
       <form onSubmit={handleSubmit} className="flex flex-wrap gap-2 text-sm">
         <input
           type="email"

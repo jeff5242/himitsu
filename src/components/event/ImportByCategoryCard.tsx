@@ -74,8 +74,8 @@ export default function ImportByCategoryCard({ org, event, onDone }: ImportByCat
           還沒有人員分類。到
           <Link to={`/o/${org.slug}/settings`} className="mx-1 underline">設定</Link>
           新增分類，再到
-          <Link to={`/o/${org.slug}/members`} className="mx-1 underline">成員</Link>
-          替成員勾選。
+          <Link to={`/o/${org.slug}/members`} className="mx-1 underline">會員</Link>
+          替會員勾選。
         </p>
       ) : (
         <>

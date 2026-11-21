@@ -165,7 +165,8 @@ function ImportMembersCard({
 
   return (
     <section className="bg-white rounded-xl shadow p-4 space-y-2 text-sm">
-      <h3 className="font-bold">從會員庫匯入</h3>
+      <h3 className="font-bold">依會籍狀態匯入</h3>
+      <p className="text-xs text-stone-500">只匯入有會籍（會員編號）的會員；農民、貴賓請用「依人員分類匯入」。</p>
       <div className="flex flex-wrap gap-2">
         {IMPORTABLE_STATUSES.map((status) => (
           <label key={status} className="inline-flex items-center gap-1">

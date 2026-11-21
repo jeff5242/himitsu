@@ -80,7 +80,7 @@ export default function MembersPage() {
   return (
     <OrgLayout org={org} myRole={myRole}>
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-bold">成員</h2>
+        <h2 className="text-lg font-bold">會員</h2>
         <span className="text-sm text-stone-500">
           {persons.length} 人／{membershipCount} 會籍
           {multiIdentityCount > 0 && `／雙身分 ${multiIdentityCount} 人`}
@@ -93,7 +93,7 @@ export default function MembersPage() {
       </div>
 
       <p className="rounded bg-sky-50 border border-sky-200 text-sky-800 text-sm px-3 py-2">
-        「成員」是會員庫的名冊資料，不會產生登入帳號。要讓某人登入系統操作，請到
+        「會員」是協會的名冊資料，不會產生登入帳號。要讓某人登入系統操作，請到
         <Link to={`/o/${org.slug}/team`} className="mx-1 font-bold underline">團隊</Link>
         邀請他。
       </p>
@@ -117,7 +117,7 @@ export default function MembersPage() {
       )}
       {categories.length === 0 && hasWritePerm && (
         <p className="text-xs text-stone-500">
-          想把成員分成農民、貴賓等類別？先到
+          想把會員分成農民、貴賓等類別？先到
           <Link to={`/o/${org.slug}/settings`} className="mx-1 underline">設定</Link>
           的「人員分類」新增分類。
         </p>
@@ -132,7 +132,7 @@ export default function MembersPage() {
       <section className="bg-white rounded-xl shadow divide-y divide-stone-100">
         {visiblePersons.length === 0 && (
           <p className="p-4 text-stone-400 text-sm">
-            {persons.length === 0 ? '還沒有成員資料。' : '沒有符合條件的成員。'}
+            {persons.length === 0 ? '還沒有會員資料。' : '沒有符合條件的會員。'}
           </p>
         )}
         {visiblePersons.map((person) => (
@@ -202,7 +202,7 @@ function AddPersonForm({
       <input value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="手機（選填）"
         className="w-44 rounded border border-stone-300 px-3 py-2" />
       <button type="submit" className="rounded bg-amber-600 px-4 py-2 font-bold text-white hover:bg-amber-700">
-        新增成員
+        新增會員
       </button>
     </form>
   );
