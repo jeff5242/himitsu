@@ -45,6 +45,7 @@ function guest(name: string, org: string | null, tag: string, tableNo: number | 
 interface MockState {
   event?: typeof EVENT | (Omit<typeof EVENT, 'status'> & { status: string });
   writes?: string[];
+  pickupItems?: { id: string; key: string; label: string; sort: number }[];
   attendees: ReturnType<typeof guest>[];
   greetings: Record<string, unknown>[];
   submitted: { p_greeting: string | null; p_signature: string | null }[];
@@ -58,6 +59,13 @@ async function mockSupabase(page: Page, state: MockState) {
     const json = (body: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     const one = (rows: unknown[]) => json(wantsObject ? rows[0] ?? null : rows);
     const path = url.pathname;
+    const method = route.request().method();
+
+    // 先記錄所有寫入（RPC 與非 GET 的表操作），再分派回應——放在最前面才不會漏記
+    if (path.startsWith('/rest/v1/rpc/') && path !== '/rest/v1/rpc/get_setting') state.writes?.push(path);
+    if (method !== 'GET' && method !== 'HEAD' && path.startsWith('/rest/v1/') && !path.startsWith('/rest/v1/rpc/')) {
+      state.writes?.push(`${method} ${path}`);
+    }
 
     if (path.startsWith('/auth/v1/')) return json({ user: fakeSession().user });
     if (path === '/rest/v1/organizations') return one([ORG]);
@@ -67,13 +75,14 @@ async function mockSupabase(page: Page, state: MockState) {
     if (path === '/rest/v1/event_attendees') return json(state.attendees);
     if (path === '/rest/v1/event_tables') return json([{ table_no: 1, label: '貴賓桌' }, { table_no: 5, label: null }]);
     if (path === '/rest/v1/attendee_greetings') return json(state.greetings);
+    if (path === '/rest/v1/pickup_items') return json(state.pickupItems ?? []);
+    if (path === '/rest/v1/fee_invoices') return json([]);
+    if (path === '/rest/v1/attendee_pickups') return json(route.request().method() === 'GET' ? [] : null);
+    if (path === '/rest/v1/rpc/undo_checkin') return json({ ok: true });
+    if (path === '/rest/v1/rpc/add_walkin') return json({ ok: true });
     if (path === '/rest/v1/rpc/get_setting') {
       const { p_key: key } = route.request().postDataJSON() as { p_key: string };
       return json(key === 'vip.greeting_phrases' ? ['生意興隆，年年有餘', '風調雨順，五穀豐收'] : null);
-    }
-    if (path.startsWith('/rest/v1/rpc/') && path !== '/rest/v1/rpc/get_setting') state.writes?.push(path);
-    if (route.request().method() !== 'GET' && path.startsWith('/rest/v1/') && !path.startsWith('/rest/v1/rpc/')) {
-      state.writes?.push(`${route.request().method()} ${path}`);
     }
     if (path === '/rest/v1/rpc/check_in') {
       const { p_attendee: id } = route.request().postDataJSON() as { p_attendee: string };
@@ -202,5 +211,61 @@ test.describe('貴賓報到（假資料）', () => {
 
     expect(state.writes).toEqual([]);
     expect(state.submitted).toEqual([]);
+  });
+
+  test('報到台練習：籌備中可用，報到／發放／現場報名／撤銷都不寫入', async ({ page }) => {
+    const state: MockState = { event: { ...EVENT, status: 'draft' }, writes: [], attendees: [], greetings: [], submitted: [] };
+    await mockSupabase(page, state);
+    await page.addInitScript(([key, session]) => {
+      localStorage.setItem(key as string, session as string);
+    }, [STORAGE_KEY, JSON.stringify(fakeSession())]);
+
+    await page.goto('/o/miwu/events/ev-1/checkin-practice');
+    await expect(page.getByRole('heading', { name: '報到台練習' })).toBeVisible();
+    await expect(page.getByText('已報到 0／10')).toBeVisible();
+
+    await page.getByLabel('搜尋名單').fill('陳大華');
+    const card = page.locator('section', { hasText: '陳大華' });
+    await card.getByRole('button', { name: '報到', exact: true }).click();
+    await expect(card.getByText('✓ 已報到')).toBeVisible();
+    await card.getByRole('button', { name: '伴手禮' }).click();
+    await expect(card.getByRole('button', { name: '✓ 伴手禮' })).toBeVisible();
+
+    await page.getByPlaceholder('姓名', { exact: true }).fill('路過的阿伯');
+    await page.getByRole('button', { name: '加入名單' }).click();
+    await expect(page.getByText('已報到 1／11')).toBeVisible();
+
+    await card.getByRole('button', { name: '撤銷報到' }).click();
+    await expect(page.getByText('已報到 0／11')).toBeVisible();
+    await page.getByLabel('搜尋名單').fill('');
+    await page.screenshot({ path: 'test-results/checkin-practice.png', fullPage: true });
+
+    await page.getByRole('button', { name: '↺ 重新練習' }).click();
+    await expect(page.getByText('已報到 0／10')).toBeVisible();
+    expect(state.writes).toEqual([]);
+  });
+
+  test('正式報到台（拆元件後回歸）：報到、發放、現場報名都會寫入', async ({ page }) => {
+    const state: MockState = {
+      writes: [], greetings: [], submitted: [],
+      attendees: [guest('陳大華', '二林鎮', '農民', 2)],
+      pickupItems: [{ id: 'pi-1', key: 'gift', label: '伴手禮', sort: 0 }],
+    };
+    await mockSupabase(page, state);
+    await page.addInitScript(([key, session]) => {
+      localStorage.setItem(key as string, session as string);
+    }, [STORAGE_KEY, JSON.stringify(fakeSession())]);
+
+    await page.goto('/o/miwu/events/ev-1');
+    await page.getByRole('button', { name: '報到台' }).click();
+    const card = page.locator('section', { hasText: '陳大華' });
+    await card.getByRole('button', { name: '報到', exact: true }).click();
+    await expect(card.getByText('✓ 已報到')).toBeVisible();
+    await card.getByRole('button', { name: '伴手禮' }).click();
+    await page.getByPlaceholder('姓名', { exact: true }).fill('路過的阿伯');
+    await page.getByRole('button', { name: '加入名單' }).click();
+    await expect.poll(() => state.writes).toEqual(expect.arrayContaining([
+      '/rest/v1/rpc/check_in', 'POST /rest/v1/attendee_pickups', '/rest/v1/rpc/add_walkin',
+    ]));
   });
 });

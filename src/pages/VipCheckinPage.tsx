@@ -122,7 +122,7 @@ export default function VipCheckinPage({ mode = 'live' }: VipCheckinPageProps) {
         <Link to={`/o/${org.slug}/events/${event.id}`} className="text-sm text-stone-400 hover:text-white">← 返回</Link>
         <div>
           <p className="text-xs text-stone-400">{event.name}</p>
-          <h1 className="text-2xl font-black tracking-[0.4em] text-amber-300">{isPractice ? '報到練習' : '貴賓報到'}</h1>
+          <h1 className="text-2xl font-black tracking-[0.4em] text-amber-300">{isPractice ? '貴賓報到練習' : '貴賓報到'}</h1>
         </div>
         <span className="ml-auto rounded-full bg-amber-400 px-4 py-1.5 text-lg font-black text-stone-900 tabular-nums">
           已報到 {facets.checkedIn}／{facets.total}

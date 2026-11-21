@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { FormEvent } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useCheckinQueue } from '../../hooks/useCheckinQueue';
-import { attendeeAffiliation, categoryLabel, groupByPerson } from '../../lib/attendee';
 import type { PersonGroup } from '../../lib/attendee';
-import { KIND_LABELS } from '../../lib/labels';
+import CheckinDesk from './CheckinDesk';
+import type { Channel } from './CheckinDesk';
 import type { Attendee, Organization, OrgEvent } from '../../lib/types';
 
 interface PickupItem {
@@ -19,10 +18,6 @@ interface PickupRecord {
   attendee_id: string;
   item_key: string;
 }
-
-type Channel = 'assist' | 'kiosk' | 'vip';
-
-const CHANNEL_LABELS: Record<Channel, string> = { assist: '服務台', kiosk: '自助機', vip: '貴賓' };
 
 const ERROR_LABELS: Record<string, string> = {
   forbidden: '沒有報到權限',
@@ -39,15 +34,12 @@ interface CheckinTabProps {
   onChanged: () => Promise<void>;
 }
 
-/** 報到台（AC-9）：person 聚合卡、一鍵全報到、領取項目逐項/全領、walk-in */
+/** 報到台（AC-9）正式版：資料讀寫走 Supabase＋離線佇列，畫面交給 CheckinDesk */
 export default function CheckinTab({ org, event, attendees, canCheckin, onChanged }: CheckinTabProps) {
-  const [query, setQuery] = useState('');
-  const [channel, setChannel] = useState<Channel>('assist');
   const [items, setItems] = useState<PickupItem[]>([]);
   const [pickups, setPickups] = useState<PickupRecord[]>([]);
   const [unpaidMemberships, setUnpaidMemberships] = useState<ReadonlySet<string>>(new Set());
   const [requiresPaid, setRequiresPaid] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const reloadPickups = useCallback(async () => {
     const [{ data: itemRows }, { data: pickupRows }, { data: unpaidRows }, { data: requirePaidValue }] =
@@ -64,9 +56,7 @@ export default function CheckinTab({ org, event, attendees, canCheckin, onChange
     if (itemRows) setItems(itemRows as PickupItem[]);
     if (pickupRows) setPickups(pickupRows as PickupRecord[]);
     if (unpaidRows) {
-      setUnpaidMemberships(new Set(
-        (unpaidRows as { membership_id: string }[]).map((r) => r.membership_id),
-      ));
+      setUnpaidMemberships(new Set((unpaidRows as { membership_id: string }[]).map((r) => r.membership_id)));
     }
     if (requirePaidValue !== null) setRequiresPaid(requirePaidValue === true);
   }, [event.id, org.id]);
@@ -75,26 +65,7 @@ export default function CheckinTab({ org, event, attendees, canCheckin, onChange
     void reloadPickups();
   }, [reloadPickups]);
 
-  const pickupSet = useMemo(
-    () => new Set(pickups.map((p) => `${p.attendee_id}:${p.item_key}`)),
-    [pickups],
-  );
-
-  const groups = useMemo(() => groupByPerson(attendees), [attendees]);
-  const visibleGroups = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
-    if (!keyword) return groups;
-    return groups.filter((g) =>
-      g.name.toLowerCase().includes(keyword) ||
-      g.mobile?.includes(keyword) ||
-      g.attendees.some((a) =>
-        String(a.seq_no) === keyword ||
-        (attendeeAffiliation(a) ?? '').toLowerCase().includes(keyword) ||
-        (a.guest_tag ?? '').toLowerCase().includes(keyword) ||
-        a.identities?.memberships.some((m) => m.member_no.toLowerCase().includes(keyword)),
-      ),
-    );
-  }, [groups, query]);
+  const issuedPickups = useMemo(() => new Set(pickups.map((p) => `${p.attendee_id}:${p.item_key}`)), [pickups]);
 
   const refresh = useCallback(async () => {
     await Promise.all([onChanged(), reloadPickups()]);
@@ -102,208 +73,67 @@ export default function CheckinTab({ org, event, attendees, canCheckin, onChange
 
   const { isOnline, queuedIds, pendingCount, checkIn, flush } = useCheckinQueue(event.id, refresh);
 
-  const checkInAll = async (group: PersonGroup) => {
-    setNotice(null);
+  const checkInGroup = async (group: PersonGroup, channel: Channel): Promise<string | null> => {
+    let error: string | null = null;
     for (const attendee of group.attendees) {
       if (attendee.checked_in_at || queuedIds.has(attendee.id)) continue;
       const result = await checkIn(attendee.id, channel);
       if (!result.ok) {
-        setNotice(`報到失敗：${ERROR_LABELS[result.error ?? ''] ?? result.error ?? '未知錯誤'}`);
+        error = `報到失敗：${ERROR_LABELS[result.error ?? ''] ?? result.error ?? '未知錯誤'}`;
         break;
       }
     }
     await refresh();
+    return error;
   };
 
-  const undoCheckin = async (attendee: Attendee) => {
+  const undo = async (attendee: Attendee): Promise<string | null> => {
     const { data, error } = await supabase.rpc('undo_checkin', { p_attendee: attendee.id });
     const result = data as { ok: boolean; error?: string } | null;
-    if (error || !result?.ok) setNotice(`撤銷失敗：${error?.message ?? result?.error ?? ''}`);
-    else setNotice(null);
     await refresh();
+    return error || !result?.ok ? `撤銷失敗：${error?.message ?? result?.error ?? ''}` : null;
   };
 
-  const togglePickup = async (attendee: Attendee, item: PickupItem) => {
-    setNotice(null);
-    const issued = pickups.find((p) => p.attendee_id === attendee.id && p.item_key === item.key);
-    if (issued) {
-      const { error } = await supabase.from('attendee_pickups')
-        .update({ undone_at: new Date().toISOString() }).eq('id', issued.id);
-      if (error) setNotice(`撤銷發放失敗：${error.message}`);
-    } else {
-      const { error } = await supabase.from('attendee_pickups').insert({
-        org_id: org.id, event_id: event.id, attendee_id: attendee.id, item_key: item.key,
+  const togglePickup = async (attendee: Attendee, itemKey: string): Promise<string | null> => {
+    const issued = pickups.find((p) => p.attendee_id === attendee.id && p.item_key === itemKey);
+    const { error } = issued
+      ? await supabase.from('attendee_pickups').update({ undone_at: new Date().toISOString() }).eq('id', issued.id)
+      : await supabase.from('attendee_pickups').insert({
+        org_id: org.id, event_id: event.id, attendee_id: attendee.id, item_key: itemKey,
       });
-      if (error) setNotice(`發放被拒：${error.message}`);
-    }
     await reloadPickups();
+    if (!error) return null;
+    return issued ? `撤銷發放失敗：${error.message}` : `發放被拒：${error.message}`;
+  };
+
+  const addWalkin = async (name: string, company: string): Promise<string | null> => {
+    const { data, error } = await supabase.rpc('add_walkin', {
+      p_event: event.id, p_name: name, p_org_name: company || null,
+    });
+    const result = data as { ok: boolean; error?: string } | null;
+    if (error || !result?.ok) {
+      return result?.error === 'walkin_disabled'
+        ? '本活動已關閉現場報名（設定中心可開啟）'
+        : `新增失敗：${error?.message ?? result?.error ?? ''}`;
+    }
+    await refresh();
+    return null;
   };
 
   if (event.status !== 'open') {
     return (
       <p className="rounded bg-stone-100 border border-stone-200 text-stone-500 text-sm px-3 py-4">
         活動目前是「{event.status === 'draft' ? '籌備中' : '已結束'}」——開放報到後這裡才能操作。
+        想先熟悉操作，可以用活動頁上方的「🧪 報到台練習」。
       </p>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <input value={query} onChange={(e) => setQuery(e.target.value)} autoFocus
-          placeholder="搜尋姓名／手機／序號／編號／公司／身分…"
-          className="flex-1 min-w-64 rounded border border-stone-300 px-3 py-3 text-base" />
-        <span className="flex rounded border border-stone-300 overflow-hidden text-sm">
-          {(Object.keys(CHANNEL_LABELS) as Channel[]).map((c) => (
-            <button key={c} onClick={() => setChannel(c)}
-              className={`px-3 py-2 ${channel === c ? 'bg-amber-600 text-white font-bold' : 'bg-white hover:bg-stone-50'}`}>
-              {CHANNEL_LABELS[c]}
-            </button>
-          ))}
-        </span>
-      </div>
-
-      {!isOnline && (
-        <p className="rounded bg-amber-50 border border-amber-300 text-amber-800 text-sm px-3 py-2 font-bold">
-          📴 離線模式——可照常搜尋與報到，動作已排入本機佇列（{pendingCount} 筆），回網自動同步。
-          離線期間請勿重新整理頁面。
-        </p>
-      )}
-      {isOnline && pendingCount > 0 && (
-        <p className="rounded bg-blue-50 border border-blue-200 text-blue-700 text-sm px-3 py-2 flex items-center gap-3">
-          <span>待同步 {pendingCount} 筆離線報到</span>
-          <button onClick={() => void flush()} className="rounded border border-blue-300 px-2 py-1 hover:bg-blue-100">
-            立即同步
-          </button>
-        </p>
-      )}
-
-      {canCheckin && <WalkinForm eventId={event.id} onAdded={refresh} />}
-
-      {notice && (
-        <p className="rounded bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{notice}</p>
-      )}
-
-      <div className="space-y-3">
-        {visibleGroups.length === 0 && (
-          <p className="text-sm text-stone-400">沒有符合的名單。</p>
-        )}
-        {visibleGroups.slice(0, 30).map((group) => {
-          const allCheckedIn = group.attendees.every((a) => a.checked_in_at || queuedIds.has(a.id));
-          return (
-            <section key={group.key}
-              className={`bg-white rounded-xl shadow p-4 space-y-2 border-l-4 ${allCheckedIn ? 'border-green-600' : 'border-stone-200'}`}>
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-lg font-black">{group.name}</span>
-                {group.mobile && <span className="text-sm text-stone-500">{group.mobile}</span>}
-                {group.attendees.length > 1 && (
-                  <span className="text-xs rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 font-bold">
-                    {group.attendees.length} 身分
-                  </span>
-                )}
-                {canCheckin && !allCheckedIn && (
-                  <button onClick={() => void checkInAll(group)}
-                    className="ml-auto rounded bg-green-700 px-4 py-2 text-white font-bold hover:bg-green-800">
-                    {group.attendees.length > 1 ? '全部報到' : '報到'}
-                  </button>
-                )}
-                {allCheckedIn && (
-                  <span className="ml-auto text-green-700 font-bold text-sm">✓ 已報到</span>
-                )}
-              </div>
-
-              {group.attendees.map((attendee) => (
-                <div key={attendee.id} className="flex flex-wrap items-center gap-2 text-sm border-t border-stone-100 pt-2">
-                  <span className="font-mono text-stone-400">#{attendee.seq_no}</span>
-                  <span className="text-xs rounded-full bg-stone-100 px-2 py-0.5 text-stone-600">
-                    {attendee.identities ? KIND_LABELS[attendee.identities.kind] : categoryLabel(attendee)}
-                  </span>
-                  {attendeeAffiliation(attendee) && (
-                    <span className="text-stone-500">{attendeeAffiliation(attendee)}</span>
-                  )}
-                  {attendee.table_no !== null && (
-                    <span className="text-xs rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-700">
-                      桌 {attendee.table_no}
-                    </span>
-                  )}
-                  {(attendee.identities?.memberships.some((m) => unpaidMemberships.has(m.id)) ?? false) && (
-                    <span className="text-xs rounded-full bg-red-50 border border-red-300 px-2 py-0.5 text-red-600 font-bold">
-                      未繳會費{requiresPaid ? '·領取鎖定' : ''}
-                    </span>
-                  )}
-                  {attendee.checked_in_at ? (
-                    <span className="text-green-700">✓ {new Date(attendee.checked_in_at).toLocaleTimeString('zh-TW')}</span>
-                  ) : queuedIds.has(attendee.id) ? (
-                    <span className="text-amber-700">⏳ 已報到（待同步）</span>
-                  ) : (
-                    <span className="text-stone-400">未報到</span>
-                  )}
-                  {canCheckin && (
-                    <span className="ml-auto flex flex-wrap items-center gap-2">
-                      {items.map((item) => {
-                        const issued = pickupSet.has(`${attendee.id}:${item.key}`);
-                        return (
-                          <button key={item.key} onClick={() => void togglePickup(attendee, item)}
-                            className={`rounded-full border px-2.5 py-1 text-xs ${
-                              issued ? 'bg-green-50 border-green-300 text-green-700 font-bold'
-                                     : 'border-stone-300 text-stone-500 hover:bg-stone-50'}`}>
-                            {issued ? '✓ ' : ''}{item.label}
-                          </button>
-                        );
-                      })}
-                      {attendee.checked_in_at && (
-                        <button onClick={() => void undoCheckin(attendee)}
-                          className="text-xs text-stone-400 hover:text-red-600">撤銷報到</button>
-                      )}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </section>
-          );
-        })}
-        {visibleGroups.length > 30 && (
-          <p className="text-xs text-stone-400">還有 {visibleGroups.length - 30} 張卡——輸入關鍵字縮小範圍。</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function WalkinForm({ eventId, onAdded }: { eventId: string; onAdded: () => Promise<void> }) {
-  const [name, setName] = useState('');
-  const [company, setCompany] = useState('');
-  const [message, setMessage] = useState<string | null>(null);
-
-  const handleSubmit = async (formEvent: FormEvent) => {
-    formEvent.preventDefault();
-    const { data, error } = await supabase.rpc('add_walkin', {
-      p_event: eventId, p_name: name, p_org_name: company || null,
-    });
-    const result = data as { ok: boolean; error?: string } | null;
-    if (error || !result?.ok) {
-      setMessage(result?.error === 'walkin_disabled'
-        ? '本活動已關閉現場報名（設定中心可開啟）'
-        : `新增失敗：${error?.message ?? result?.error ?? ''}`);
-      return;
-    }
-    setMessage(null);
-    setName('');
-    setCompany('');
-    await onAdded();
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2 text-sm">
-      <span className="text-stone-500">現場報名：</span>
-      <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="姓名"
-        className="w-36 rounded border border-stone-300 px-3 py-2" />
-      <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="單位（選填）"
-        className="w-44 rounded border border-stone-300 px-3 py-2" />
-      <button type="submit" className="rounded border border-stone-300 px-3 py-2 hover:bg-stone-100">
-        加入名單
-      </button>
-      {message && <span className="text-red-600">{message}</span>}
-    </form>
+    <CheckinDesk attendees={attendees} items={items} issuedPickups={issuedPickups}
+      unpaidMemberships={unpaidMemberships} requiresPaid={requiresPaid}
+      queuedIds={queuedIds} isOnline={isOnline} pendingCount={pendingCount} canCheckin={canCheckin}
+      onFlush={() => void flush()} onCheckInGroup={checkInGroup} onUndo={undo}
+      onTogglePickup={togglePickup} onAddWalkin={addWalkin} />
   );
 }

@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import { PRACTICE_TABLE_LABELS, practiceRoster, withPracticeCheckins } from './practice';
+import {
+  PRACTICE_PICKUP_ITEMS, PRACTICE_TABLE_LABELS, addPracticeWalkin, practicePickupItems, practiceRoster,
+  togglePracticePickup, withPracticeCheckins,
+} from './practice';
 import type { Attendee } from './types';
 
 const realGuest = (id: string, checkedIn: string | null = null): Attendee => ({
@@ -46,5 +49,48 @@ describe('withPracticeCheckins', () => {
     const roster = [realGuest('a1')];
     withPracticeCheckins(roster, new Map([['a1', '2026-11-21T10:00:00Z']]));
     expect(roster[0].checked_in_at).toBeNull();
+  });
+});
+
+describe('practicePickupItems', () => {
+  test('uses the event\'s real pickup items when defined', () => {
+    const real = [{ key: 'p1', label: '名牌' }];
+    expect(practicePickupItems(real)).toEqual(real);
+  });
+
+  test('falls back to 伴手禮 and 摸彩券 when the event has none', () => {
+    expect(practicePickupItems([]).map((i) => i.label)).toEqual(['伴手禮', '摸彩券']);
+    expect(PRACTICE_PICKUP_ITEMS.length).toBe(2);
+  });
+});
+
+describe('togglePracticePickup', () => {
+  test('adds then removes the same attendee + item, returning new sets', () => {
+    const empty: ReadonlySet<string> = new Set();
+    const issued = togglePracticePickup(empty, 'a1', 'gift');
+    expect([...issued]).toEqual(['a1:gift']);
+    expect(empty.size).toBe(0);
+    expect([...togglePracticePickup(issued, 'a1', 'gift')]).toEqual([]);
+  });
+});
+
+describe('addPracticeWalkin', () => {
+  test('appends a 現場報名 row with the next sequence number and no table', () => {
+    const roster = practiceRoster([], 'ev-1').attendees;
+    const next = addPracticeWalkin(roster, '  路過的阿伯 ', ' 二林鎮 ', 'ev-1');
+    const added = next[next.length - 1];
+    expect(next.length).toBe(roster.length + 1);
+    expect(added).toMatchObject({
+      guest_name: '路過的阿伯', guest_org: '二林鎮', category: 'walkin', table_no: null,
+      seq_no: roster.length + 1, event_id: 'ev-1', checked_in_at: null,
+    });
+    expect(roster.length).toBe(10);
+  });
+
+  test('stores an empty 單位 as null and gives each walk-in a unique id', () => {
+    const once = addPracticeWalkin([], '甲', '', 'ev-1');
+    const twice = addPracticeWalkin(once, '乙', '', 'ev-1');
+    expect(twice[0].guest_org).toBeNull();
+    expect(new Set(twice.map((a) => a.id)).size).toBe(2);
   });
 });

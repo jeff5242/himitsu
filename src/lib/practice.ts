@@ -54,3 +54,48 @@ export function practiceRoster(real: Attendee[], eventId: string): { attendees: 
 export function withPracticeCheckins(roster: Attendee[], checkins: ReadonlyMap<string, string>): Attendee[] {
   return roster.map((a) => ({ ...a, checked_in_at: checkins.get(a.id) ?? null }));
 }
+
+export interface PracticePickupItem {
+  key: string;
+  label: string;
+}
+
+/** 範例領取項目：活動還沒設定領取項目時，練習發放用 */
+export const PRACTICE_PICKUP_ITEMS: readonly PracticePickupItem[] = [
+  { key: 'practice-gift', label: '伴手禮' },
+  { key: 'practice-lottery', label: '摸彩券' },
+];
+
+export function practicePickupItems<T extends PracticePickupItem>(real: T[]): PracticePickupItem[] {
+  return real.length > 0 ? real : [...PRACTICE_PICKUP_ITEMS];
+}
+
+/** 發放／取消發放（鍵＝attendeeId:itemKey），回傳新集合 */
+export function togglePracticePickup(issued: ReadonlySet<string>, attendeeId: string, itemKey: string): Set<string> {
+  const key = `${attendeeId}:${itemKey}`;
+  const next = new Set(issued);
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
+  return next;
+}
+
+/** 練習用現場報名：接在名單最後，序號＝最大序號＋1，未排桌 */
+export function addPracticeWalkin(roster: Attendee[], name: string, org: string, eventId: string): Attendee[] {
+  const seq = roster.reduce((max, a) => Math.max(max, a.seq_no), 0) + 1;
+  const walkin: Attendee = {
+    id: `practice-walkin-${seq}`,
+    event_id: eventId,
+    seq_no: seq,
+    identity_id: null,
+    guest_name: name.trim(),
+    guest_org: org.trim() || null,
+    guest_tag: null,
+    category: 'walkin',
+    table_no: null,
+    source: 'walkin',
+    checked_in_at: null,
+    removed_at: null,
+    identities: null,
+  };
+  return [...roster, walkin];
+}
