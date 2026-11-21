@@ -36,6 +36,8 @@ npm install
    - `..._fees.sql`（會費開繳/回報/確認＋報到連動）
    - `..._table_swap.sql`（兩桌互換 RPC）
    - `..._devices.sql`（報到機裝置：kiosk 帳號/註冊碼/心跳）
+   - `..._guest_import.sql`（來賓身分標籤 guest_tag＋CSV 整批匯入 import_guests）
+   - `..._vip_greetings.sql`（貴賓報到祝福詞＋手寫簽名、祝福牆資料源）
 5. 驗證：貼上執行 `supabase/tests/` 下的測試（結果表格版直接看 Results；`*_results.sql` 優先）
 
 ### 3. 啟動與示範資料（3 分鐘）
@@ -65,6 +67,8 @@ SQL 層測試（貼 SQL Editor，全自動 PASS/FAIL）：
 - `supabase/tests/settings_test_results.sql` —— AC-7 編號規則、設定隔離（表格版）
 - `supabase/tests/epic1_test_results.sql` —— AC-8~12 活動/報到/桌次/會費（表格版）
 - `supabase/tests/epic2_test_results.sql` —— AC-14/17 裝置註冊/心跳/遙控（表格版）
+- `supabase/tests/guest_import_test_results.sql` —— 來賓 CSV 匯入（整批原子/冪等略過/爆桌回滾/權限，表格版）
+- `supabase/tests/vip_greetings_test_results.sql` —— 貴賓祝福／簽名（需已報到/格式驗證/撤下權限/跨協會隔離，表格版）
 
 ## 功能地圖（EPIC-0＋EPIC-1）
 

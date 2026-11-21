@@ -47,3 +47,8 @@ EPIC-1 已全數驗收（SQL 測試全 PASS＋正式站人工實測；桌次追�
 - [x] L16 merge＋佈署包 —— `merge_test.py` 兩實例對打（AC-18 自動 PASS/FAIL）、`kiosk-start.sh`、`docs/kiosk-deploy.md`（雙螢幕/低電壓血淚教訓）、SQL 測試 `epic2_test_results.sql`（AC-14/17）
 
 待使用者：貼 migration `..._devices.sql`＋測試 `epic2_test_results.sql`；本機雙終端實測 AC-15/16/18（步驟見 docs/kiosk-deploy.md）。
+
+### 客戶案：米屋智農 2026 忘年會（餐廳報到帶位）
+- [x] L17 來賓 CSV 匯入 —— migration `20261120000011_guest_import.sql`（event_attendees.guest_tag 身分標籤＋`import_guests` RPC 整批原子：同姓名＋單位略過、缺桌自動建、爆桌整批回滾；`import_guests_core` 只給 SQL Editor）＋測試 `supabase/tests/guest_import_test_results.sql`＋前端「名單」分頁 CSV 匯入卡（UTF-8/Big5 自動判斷、先預覽再匯入）＋`scripts/guests-to-sql.py`（Excel/CSV → 一次性匯入 SQL）
+- [x] L18 貴賓報到（TADA guest/blessing 多租戶重寫）—— migration `20261120000012_vip_greetings.sql`（attendee_greetings 獨立表存祝福詞＋簽名 data URL、submit_greeting 需已報到、set_greeting_hidden 撤下、設定 vip.greeting_phrases）＋測試 `supabase/tests/vip_greetings_test_results.sql`＋前端 `/o/:slug/events/:id/vip`（iPad：身分/單位/姓氏篩選、歡迎卡大字桌號、祝福＋簽名板）與 `/blessings` 祝福牆（15 秒增量輪詢、管理模式撤下）＋E2E `e2e/vip.spec.ts`（全攔截假資料，不碰真後端）
+- SQL 測試可在本機跑：docker 起 `public.ecr.aws/supabase/postgres` 後須補 GoTrue 欄位與新版 auth.uid()（讀 request.jwt.claims），否則權限檢查全失敗

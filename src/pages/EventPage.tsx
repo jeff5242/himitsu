@@ -83,13 +83,23 @@ export default function EventPage() {
         )}
       </div>
 
-      <nav className="flex gap-1">
+      <nav className="flex flex-wrap items-center gap-1">
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-3 py-1.5 rounded text-sm ${tab === t.key ? 'bg-amber-600 text-white font-bold' : 'hover:bg-stone-100'}`}>
             {t.label}
           </button>
         ))}
+        <span className="ml-auto flex gap-2 text-sm">
+          <Link to={`/o/${org.slug}/events/${event.id}/vip`} target="_blank"
+            className="rounded border border-amber-300 bg-amber-50 px-3 py-1.5 text-amber-800 hover:bg-amber-100">
+            👑 貴賓報到畫面
+          </Link>
+          <Link to={`/o/${org.slug}/events/${event.id}/blessings`} target="_blank"
+            className="rounded border border-stone-300 px-3 py-1.5 hover:bg-stone-100">
+            🙏 祝福牆
+          </Link>
+        </span>
       </nav>
 
       {notice && (

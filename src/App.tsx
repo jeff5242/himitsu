@@ -10,6 +10,8 @@ import SettingsPage from './pages/SettingsPage';
 import EventsPage from './pages/EventsPage';
 import EventPage from './pages/EventPage';
 import TableScreenPage from './pages/TableScreenPage';
+import VipCheckinPage from './pages/VipCheckinPage';
+import BlessingWallPage from './pages/BlessingWallPage';
 import FeesPage from './pages/FeesPage';
 import DevicesPage from './pages/DevicesPage';
 import InvitePage from './pages/InvitePage';
@@ -31,6 +33,8 @@ export default function App() {
           <Route path="/o/:slug/events" element={<RequireAuth><EventsPage /></RequireAuth>} />
           <Route path="/o/:slug/events/:eventId" element={<RequireAuth><EventPage /></RequireAuth>} />
           <Route path="/o/:slug/events/:eventId/screen" element={<RequireAuth><TableScreenPage /></RequireAuth>} />
+          <Route path="/o/:slug/events/:eventId/vip" element={<RequireAuth><VipCheckinPage /></RequireAuth>} />
+          <Route path="/o/:slug/events/:eventId/blessings" element={<RequireAuth><BlessingWallPage /></RequireAuth>} />
           <Route path="/o/:slug/fees" element={<RequireAuth><FeesPage /></RequireAuth>} />
           <Route path="/o/:slug/devices" element={<RequireAuth><DevicesPage /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
