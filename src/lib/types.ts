@@ -25,6 +25,8 @@ export interface Person {
   mobile: string | null;
   email: string | null;
   note: string | null;
+  /** 單位（農民的鄉鎮、貴賓的服務單位） */
+  affiliation: string | null;
   created_at: string;
 }
 
@@ -106,6 +108,8 @@ export interface Attendee {
   guest_org: string | null;
   /** 來賓身分標籤（例：貴賓／農民；CSV 匯入的「身分」欄） */
   guest_tag: string | null;
+  /** 依人員分類從會員庫匯入的來賓，連回成員 */
+  person_id?: string | null;
   category: AttendeeCategory;
   table_no: number | null;
   source: 'import' | 'manual' | 'walkin';

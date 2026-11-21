@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { supabase } from '../../lib/supabase';
 import { attendeeAffiliation, attendeeName, categoryLabel } from '../../lib/attendee';
 import GuestImportCard from './GuestImportCard';
+import ImportByCategoryCard from './ImportByCategoryCard';
 import { KIND_LABELS, STATUS_LABELS } from '../../lib/labels';
 import type { Attendee, MembershipStatus, Organization, OrgEvent } from '../../lib/types';
 
@@ -54,6 +55,7 @@ export default function RosterTab({ org, event, attendees, canWrite, onChanged }
       {canWrite && event.status !== 'closed' && (
         <div className="grid gap-3 sm:grid-cols-2">
           <ImportMembersCard org={org} event={event} attendees={attendees} onDone={onChanged} />
+          <ImportByCategoryCard org={org} event={event} onDone={onChanged} />
           <AddGuestCard org={org} event={event} onDone={onChanged} />
           <PickupItemsCard org={org} event={event} />
           <GuestImportCard org={org} event={event} attendees={attendees} onDone={onChanged} />

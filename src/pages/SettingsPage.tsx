@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useOrg } from '../hooks/useOrg';
 import OrgLayout from '../components/OrgLayout';
 import MemberNoRuleCard from '../components/MemberNoRuleCard';
+import PersonCategoriesCard from '../components/PersonCategoriesCard';
 import SettingRow from '../components/SettingRow';
 import type { SettingsCatalogItem } from '../lib/types';
 
@@ -90,6 +91,8 @@ export default function SettingsPage() {
         onSave={(value) => saveSetting('member_no.rule', value)}
         onReset={() => resetSetting('member_no.rule')}
       />
+
+      <PersonCategoriesCard orgId={org.id} canWrite={canWrite} />
 
       {[...categories.entries()].map(([category, items]) => (
         <section key={category} className="bg-white rounded-xl shadow p-5 space-y-1">
