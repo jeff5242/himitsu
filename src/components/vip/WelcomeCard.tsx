@@ -1,7 +1,11 @@
 import { useState } from 'react';
-import { supabase } from '../../lib/supabase';
 import SignaturePad from './SignaturePad';
 import type { VipEntry } from '../../lib/vip';
+
+export interface GreetingResult {
+  ok: boolean;
+  error?: string;
+}
 
 interface WelcomeCardProps {
   entry: VipEntry;
@@ -10,6 +14,8 @@ interface WelcomeCardProps {
   /** 報到排入離線佇列時為 true：祝福必須等回網才能送 */
   isQueued: boolean;
   onClose: () => void;
+  /** 正式模式呼叫 submit_greeting；練習模式只在本機回 ok */
+  onSubmitGreeting: (attendeeId: string, phrase: string | null, signature: string | null) => Promise<GreetingResult>;
 }
 
 const GREETING_ERRORS: Record<string, string> = {
@@ -21,7 +27,9 @@ const GREETING_ERRORS: Record<string, string> = {
 };
 
 /** 報到後的歡迎卡：大字桌號＋祝福詞＋手寫簽名（送不出去不影響報到） */
-export default function WelcomeCard({ entry, tableLabel, phrases, isQueued, onClose }: WelcomeCardProps) {
+export default function WelcomeCard({
+  entry, tableLabel, phrases, isQueued, onClose, onSubmitGreeting,
+}: WelcomeCardProps) {
   const [phrase, setPhrase] = useState<string | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
   const [isSigning, setIsSigning] = useState(false);
@@ -32,13 +40,10 @@ export default function WelcomeCard({ entry, tableLabel, phrases, isQueued, onCl
   const send = async () => {
     setStatus('sending');
     setMessage(null);
-    const { data, error } = await supabase.rpc('submit_greeting', {
-      p_attendee: attendee.id, p_greeting: phrase, p_signature: signature,
-    });
-    const result = data as { ok: boolean; error?: string } | null;
-    if (error || !result?.ok) {
+    const result = await onSubmitGreeting(attendee.id, phrase, signature);
+    if (!result.ok) {
       setStatus('idle');
-      setMessage(GREETING_ERRORS[result?.error ?? ''] ?? '祝福送出失敗，可以略過，不影響報到');
+      setMessage(GREETING_ERRORS[result.error ?? ''] ?? '祝福送出失敗，可以略過，不影響報到');
       return;
     }
     setStatus('sent');

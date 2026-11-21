@@ -4,9 +4,11 @@ import { supabase } from '../lib/supabase';
 import { useOrg } from '../hooks/useOrg';
 import { useCheckinQueue } from '../hooks/useCheckinQueue';
 import { buildVipIndex, filterVip, parseGreetingPhrases } from '../lib/vip';
+import { PRACTICE_TABLE_LABELS, practiceRoster, withPracticeCheckins } from '../lib/practice';
 import type { VipEntry, VipFilter } from '../lib/vip';
 import FacetRow from '../components/vip/FacetRow';
 import WelcomeCard from '../components/vip/WelcomeCard';
+import type { GreetingResult } from '../components/vip/WelcomeCard';
 import type { Attendee, OrgEvent } from '../lib/types';
 
 const ATTENDEE_SELECT =
@@ -20,8 +22,25 @@ const CHECKIN_ERRORS: Record<string, string> = {
   not_found: '找不到這筆名單',
 };
 
+async function submitGreetingLive(attendeeId: string, phrase: string | null, signature: string | null):
+  Promise<GreetingResult> {
+  const { data, error } = await supabase.rpc('submit_greeting', {
+    p_attendee: attendeeId, p_greeting: phrase, p_signature: signature,
+  });
+  const result = data as GreetingResult | null;
+  return error || !result ? { ok: false } : result;
+}
+
+const submitGreetingPractice = async (): Promise<GreetingResult> => ({ ok: true });
+
+interface VipCheckinPageProps {
+  /** practice＝報到練習：不寫入任何資料、不受活動狀態限制、名單空白時用範例名單 */
+  mode?: 'live' | 'practice';
+}
+
 /** 貴賓報到畫面（iPad 用）：身分／單位／姓氏篩選、大卡片、報到後歡迎卡＋祝福簽名 */
-export default function VipCheckinPage() {
+export default function VipCheckinPage({ mode = 'live' }: VipCheckinPageProps) {
+  const isPractice = mode === 'practice';
   const { slug, eventId } = useParams();
   const { org, can, isLoading } = useOrg(slug);
   const [event, setEvent] = useState<OrgEvent | null>(null);
@@ -31,6 +50,7 @@ export default function VipCheckinPage() {
   const [filter, setFilter] = useState<VipFilter>({});
   const [welcomeId, setWelcomeId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [practiceCheckins, setPracticeCheckins] = useState<ReadonlyMap<string, string>>(new Map());
 
   const reload = useCallback(async () => {
     if (!org || !eventId) return;
@@ -64,20 +84,30 @@ export default function VipCheckinPage() {
     return () => clearInterval(timer);
   }, [reload, welcomeId]);
 
+  const practice = useMemo(() => practiceRoster(attendees, eventId ?? ''), [attendees, eventId]);
+  const roster = useMemo(
+    () => (isPractice ? withPracticeCheckins(practice.attendees, practiceCheckins) : attendees),
+    [isPractice, practice, practiceCheckins, attendees]);
+  const labels = isPractice && practice.isSample ? PRACTICE_TABLE_LABELS : tableLabels;
   const isCheckedIn = useCallback(
-    (a: Attendee) => a.checked_in_at !== null || queuedIds.has(a.id), [queuedIds]);
-  const { entries, facets } = useMemo(() => buildVipIndex(attendees, isCheckedIn), [attendees, isCheckedIn]);
+    (a: Attendee) => a.checked_in_at !== null || (!isPractice && queuedIds.has(a.id)), [queuedIds, isPractice]);
+  const { entries, facets } = useMemo(() => buildVipIndex(roster, isCheckedIn), [roster, isCheckedIn]);
   const visible = useMemo(() => filterVip(entries, filter, isCheckedIn), [entries, filter, isCheckedIn]);
   const welcomeEntry = entries.find((e) => e.attendee.id === welcomeId) ?? null;
 
   if (isLoading || !org) return <main className="min-h-screen bg-stone-100" />;
   if (!event) return <p className="p-8 text-stone-400">活動載入中…</p>;
 
-  const canCheckin = can('checkin.write');
-  const isOpen = event.status === 'open';
+  const canCheckin = isPractice || can('checkin.write');
+  const isOpen = isPractice || event.status === 'open';
 
   const handleCheckIn = async (entry: VipEntry) => {
     setNotice(null);
+    if (isPractice) {
+      setPracticeCheckins(new Map(practiceCheckins).set(entry.attendee.id, new Date().toISOString()));
+      setWelcomeId(entry.attendee.id);
+      return;
+    }
     const result = await checkIn(entry.attendee.id, 'vip');
     if (!result.ok) { setNotice(CHECKIN_ERRORS[result.error ?? ''] ?? `報到失敗：${result.error}`); return; }
     setWelcomeId(entry.attendee.id);
@@ -92,7 +122,7 @@ export default function VipCheckinPage() {
         <Link to={`/o/${org.slug}/events/${event.id}`} className="text-sm text-stone-400 hover:text-white">← 返回</Link>
         <div>
           <p className="text-xs text-stone-400">{event.name}</p>
-          <h1 className="text-2xl font-black tracking-[0.4em] text-amber-300">貴賓報到</h1>
+          <h1 className="text-2xl font-black tracking-[0.4em] text-amber-300">{isPractice ? '報到練習' : '貴賓報到'}</h1>
         </div>
         <span className="ml-auto rounded-full bg-amber-400 px-4 py-1.5 text-lg font-black text-stone-900 tabular-nums">
           已報到 {facets.checkedIn}／{facets.total}
@@ -100,17 +130,25 @@ export default function VipCheckinPage() {
       </header>
 
       <div className="mx-auto max-w-6xl px-4 pt-4 space-y-3">
-        {!isOnline && (
+        {isPractice && (
+          <div className="rounded-lg border-2 border-dashed border-sky-400 bg-sky-50 px-3 py-2 text-sky-900 flex flex-wrap items-center gap-3">
+            <p className="font-bold">🧪 練習模式：報到、祝福、簽名都只存在這台裝置，不會寫入名單，也不會出現在祝福牆。</p>
+            {practice.isSample && <p>目前名單是空的，先用 10 位範例來賓練習。</p>}
+            <button type="button" onClick={() => { setPracticeCheckins(new Map()); setWelcomeId(null); }}
+              className="ml-auto rounded-lg border border-sky-400 bg-white px-3 py-1.5 font-bold">↺ 重新練習</button>
+          </div>
+        )}
+        {!isPractice && !isOnline && (
           <p className="rounded-lg bg-amber-50 border border-amber-300 px-3 py-2 font-bold text-amber-800">
             📴 離線模式——可照常報到（{pendingCount} 筆待同步），網路恢復後自動補送。離線期間請勿重新整理頁面。
           </p>
         )}
-        {!isOpen && (
+        {!isPractice && !isOpen && (
           <p className="rounded-lg bg-stone-200 px-3 py-2 text-stone-600">
             活動目前不是「報到開放」狀態，只能瀏覽名單。請主辦在活動頁按「開放報到」。
           </p>
         )}
-        {!canCheckin && <p className="rounded-lg bg-red-50 px-3 py-2 text-red-700">這個帳號沒有報到權限，只能瀏覽。</p>}
+        {!isPractice && !canCheckin && <p className="rounded-lg bg-red-50 px-3 py-2 text-red-700">這個帳號沒有報到權限，只能瀏覽。</p>}
         {notice && <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-red-700">{notice}</p>}
 
         <div className="flex flex-wrap items-center gap-3">
@@ -131,7 +169,7 @@ export default function VipCheckinPage() {
         {visible.length === 0 && <p className="py-10 text-center text-stone-400">沒有符合的貴賓。</p>}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {visible.map((entry) => (
-            <VipCard key={entry.attendee.id} entry={entry} isQueued={queuedIds.has(entry.attendee.id)}
+            <VipCard key={entry.attendee.id} entry={entry} isQueued={!isPractice && queuedIds.has(entry.attendee.id)}
               canCheckin={canCheckin && isOpen} onCheckIn={() => void handleCheckIn(entry)}
               onReopen={() => setWelcomeId(entry.attendee.id)} />
           ))}
@@ -140,9 +178,10 @@ export default function VipCheckinPage() {
 
       {welcomeEntry && (
         <WelcomeCard entry={welcomeEntry} phrases={phrases}
-          tableLabel={welcomeEntry.attendee.table_no !== null ? tableLabels.get(welcomeEntry.attendee.table_no) ?? null : null}
-          isQueued={queuedIds.has(welcomeEntry.attendee.id) || !isOnline}
-          onClose={() => { setWelcomeId(null); void reload(); }} />
+          tableLabel={welcomeEntry.attendee.table_no !== null ? labels.get(welcomeEntry.attendee.table_no) ?? null : null}
+          isQueued={!isPractice && (queuedIds.has(welcomeEntry.attendee.id) || !isOnline)}
+          onSubmitGreeting={isPractice ? submitGreetingPractice : submitGreetingLive}
+          onClose={() => { setWelcomeId(null); if (!isPractice) void reload(); }} />
       )}
     </main>
   );

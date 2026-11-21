@@ -43,6 +43,8 @@ function guest(name: string, org: string | null, tag: string, tableNo: number | 
 }
 
 interface MockState {
+  event?: typeof EVENT | (Omit<typeof EVENT, 'status'> & { status: string });
+  writes?: string[];
   attendees: ReturnType<typeof guest>[];
   greetings: Record<string, unknown>[];
   submitted: { p_greeting: string | null; p_signature: string | null }[];
@@ -61,13 +63,17 @@ async function mockSupabase(page: Page, state: MockState) {
     if (path === '/rest/v1/organizations') return one([ORG]);
     if (path === '/rest/v1/org_users') return one([{ role: 'secretary' }]);
     if (path === '/rest/v1/role_permissions') return json([{ perm: 'events.write' }, { perm: 'checkin.write' }]);
-    if (path === '/rest/v1/events') return one([EVENT]);
+    if (path === '/rest/v1/events') return one([state.event ?? EVENT]);
     if (path === '/rest/v1/event_attendees') return json(state.attendees);
     if (path === '/rest/v1/event_tables') return json([{ table_no: 1, label: '貴賓桌' }, { table_no: 5, label: null }]);
     if (path === '/rest/v1/attendee_greetings') return json(state.greetings);
     if (path === '/rest/v1/rpc/get_setting') {
       const { p_key: key } = route.request().postDataJSON() as { p_key: string };
       return json(key === 'vip.greeting_phrases' ? ['生意興隆，年年有餘', '風調雨順，五穀豐收'] : null);
+    }
+    if (path.startsWith('/rest/v1/rpc/') && path !== '/rest/v1/rpc/get_setting') state.writes?.push(path);
+    if (route.request().method() !== 'GET' && path.startsWith('/rest/v1/') && !path.startsWith('/rest/v1/rpc/')) {
+      state.writes?.push(`${route.request().method()} ${path}`);
     }
     if (path === '/rest/v1/rpc/check_in') {
       const { p_attendee: id } = route.request().postDataJSON() as { p_attendee: string };
@@ -157,5 +163,44 @@ test.describe('貴賓報到（假資料）', () => {
     await expect(page.getByAltText('王小明 的簽名')).toBeVisible();
     await expect(page.getByText('份祝福')).toContainText('1');
     await page.screenshot({ path: 'test-results/blessing-wall.png' });
+  });
+
+  test('報到練習：籌備中、名單空白也能演練，且完全不寫入', async ({ page }) => {
+    const state: MockState = {
+      event: { ...EVENT, status: 'draft' },
+      writes: [],
+      attendees: [],
+      greetings: [],
+      submitted: [],
+    };
+    await mockSupabase(page, state);
+    await page.addInitScript(([key, session]) => {
+      localStorage.setItem(key as string, session as string);
+    }, [STORAGE_KEY, JSON.stringify(fakeSession())]);
+
+    await page.goto('/o/miwu/events/ev-1/practice');
+    await expect(page.getByRole('heading', { name: '報到練習' })).toBeVisible();
+    await expect(page.getByText(/練習模式/)).toBeVisible();
+    await expect(page.getByText('先用 10 位範例來賓練習')).toBeVisible();
+    await expect(page.getByText('已報到 0／10')).toBeVisible();
+    await expect(page.getByText('活動目前不是「報到開放」狀態')).toHaveCount(0);
+
+    const card = page.locator('article', { hasText: '王小明' });
+    await card.getByRole('button', { name: '貴賓報到' }).click();
+    const welcome = page.getByRole('dialog', { name: '歡迎蒞臨' });
+    await expect(welcome.getByText('第 1 桌')).toBeVisible();
+    await expect(welcome.getByText('主桌')).toBeVisible();
+    await welcome.getByRole('button', { name: '生意興隆，年年有餘' }).click();
+    await welcome.getByRole('button', { name: '送出祝福' }).click();
+    await expect(welcome.getByText('已收到您的祝福，謝謝！')).toBeVisible();
+    await welcome.getByRole('button', { name: '完成' }).click();
+    await expect(page.getByText('已報到 1／10')).toBeVisible();
+    await page.screenshot({ path: 'test-results/vip-practice.png', fullPage: true });
+
+    await page.getByRole('button', { name: '↺ 重新練習' }).click();
+    await expect(page.getByText('已報到 0／10')).toBeVisible();
+
+    expect(state.writes).toEqual([]);
+    expect(state.submitted).toEqual([]);
   });
 });

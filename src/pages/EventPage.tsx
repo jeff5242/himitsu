@@ -91,6 +91,10 @@ export default function EventPage() {
           </button>
         ))}
         <span className="ml-auto flex gap-2 text-sm">
+          <Link to={`/o/${org.slug}/events/${event.id}/practice`} target="_blank"
+            className="rounded border border-sky-300 bg-sky-50 px-3 py-1.5 text-sky-800 hover:bg-sky-100">
+            🧪 報到練習
+          </Link>
           <Link to={`/o/${org.slug}/events/${event.id}/vip`} target="_blank"
             className="rounded border border-amber-300 bg-amber-50 px-3 py-1.5 text-amber-800 hover:bg-amber-100">
             👑 貴賓報到畫面

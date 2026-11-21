@@ -34,6 +34,7 @@ export default function App() {
           <Route path="/o/:slug/events/:eventId" element={<RequireAuth><EventPage /></RequireAuth>} />
           <Route path="/o/:slug/events/:eventId/screen" element={<RequireAuth><TableScreenPage /></RequireAuth>} />
           <Route path="/o/:slug/events/:eventId/vip" element={<RequireAuth><VipCheckinPage /></RequireAuth>} />
+          <Route path="/o/:slug/events/:eventId/practice" element={<RequireAuth><VipCheckinPage mode="practice" /></RequireAuth>} />
           <Route path="/o/:slug/events/:eventId/blessings" element={<RequireAuth><BlessingWallPage /></RequireAuth>} />
           <Route path="/o/:slug/fees" element={<RequireAuth><FeesPage /></RequireAuth>} />
           <Route path="/o/:slug/devices" element={<RequireAuth><DevicesPage /></RequireAuth>} />

@@ -18,6 +18,7 @@
 - EPIC-0 地基規格（AC-1~7，已全數驗收）：https://claude.ai/code/artifact/1eb7c3e7-0b50-4749-8fb3-7b49b80cb383
 - EPIC-1 現場與會費規格（AC-8~13）：https://claude.ai/code/artifact/ee40a33a-00bd-46b4-ad78-a55cd426ad77
 - EPIC-2 離線報到機規格（AC-14~19）：https://claude.ai/code/artifact/88d78a72-647a-495c-8973-945bb88b722b
+- EPIC-3 選舉計票規格（AC-20~27，待放行）：https://claude.ai/artifact/1b85XvPEG76AAy8LEwy7ST
 - 大會實戰檢討（需求源頭）：https://claude.ai/code/artifact/3d363730-c3a4-4bad-8e8a-6c6f761964b7
 
 ## 進度
@@ -51,4 +52,5 @@ EPIC-1 已全數驗收（SQL 測試全 PASS＋正式站人工實測；桌次追�
 ### 客戶案：米屋智農 2026 忘年會（餐廳報到帶位）
 - [x] L17 來賓 CSV 匯入 —— migration `20261120000011_guest_import.sql`（event_attendees.guest_tag 身分標籤＋`import_guests` RPC 整批原子：同姓名＋單位略過、缺桌自動建、爆桌整批回滾；`import_guests_core` 只給 SQL Editor）＋測試 `supabase/tests/guest_import_test_results.sql`＋前端「名單」分頁 CSV 匯入卡（UTF-8/Big5 自動判斷、先預覽再匯入）＋`scripts/guests-to-sql.py`（Excel/CSV → 一次性匯入 SQL）
 - [x] L18 貴賓報到（TADA guest/blessing 多租戶重寫）—— migration `20261120000012_vip_greetings.sql`（attendee_greetings 獨立表存祝福詞＋簽名 data URL、submit_greeting 需已報到、set_greeting_hidden 撤下、設定 vip.greeting_phrases）＋測試 `supabase/tests/vip_greetings_test_results.sql`＋前端 `/o/:slug/events/:id/vip`（iPad：身分/單位/姓氏篩選、歡迎卡大字桌號、祝福＋簽名板）與 `/blessings` 祝福牆（15 秒增量輪詢、管理模式撤下）＋E2E `e2e/vip.spec.ts`（全攔截假資料，不碰真後端）
+- [x] L19 報到練習模式 —— `/o/:slug/events/:id/practice`（同貴賓報到畫面、`mode="practice"`：不呼叫任何寫入 RPC、不受活動狀態限制、名單空白改用 10 位範例來賓、↺ 重新練習）；`src/lib/practice.ts`＋E2E 斷言零寫入
 - SQL 測試可在本機跑：docker 起 `public.ecr.aws/supabase/postgres` 後須補 GoTrue 欄位與新版 auth.uid()（讀 request.jwt.claims），否則權限檢查全失敗
