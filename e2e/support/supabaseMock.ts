@@ -124,6 +124,7 @@ export async function mockSupabase(page: Page, state: MockState): Promise<void> 
       return json(state.links ?? []);
     }
     if (path === '/rest/v1/rpc/import_people_by_category') return json({ ok: true, inserted: 1, skipped: 0 });
+    if (path === '/rest/v1/rpc/import_members') return json({ ok: true, created: 2, merged: 1, categories_created: 2, links_added: 4 });
     if (path === '/rest/v1/rpc/undo_checkin') return json({ ok: true });
     if (path === '/rest/v1/rpc/add_walkin') return json({ ok: true });
     if (path === '/rest/v1/rpc/get_setting') {

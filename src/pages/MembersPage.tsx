@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useOrg } from '../hooks/useOrg';
 import OrgLayout from '../components/OrgLayout';
 import PersonCard from '../components/PersonCard';
+import MemberImportCard from '../components/MemberImportCard';
 import { categoryCounts, filterPersonsByCategory, sortCategories } from '../lib/personCategories';
 import type { CategoryLink, PersonCategory } from '../lib/personCategories';
 import type { PersonWithDetails } from '../lib/types';
@@ -128,6 +129,12 @@ export default function MembersPage() {
       )}
 
       <AddPersonForm orgId={org.id} onDone={reload} onRejected={setNotice} />
+
+      {hasWritePerm && (
+        <MemberImportCard orgId={org.id} categories={categories} canCreateCategories={can('org_settings.write')}
+          existingPersons={persons.map((p) => ({ id: p.id, name: p.name, affiliation: p.affiliation }))}
+          onDone={reload} />
+      )}
 
       <section className="bg-white rounded-xl shadow divide-y divide-stone-100">
         {visiblePersons.length === 0 && (

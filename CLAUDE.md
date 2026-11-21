@@ -55,4 +55,5 @@ EPIC-1 已全數驗收（SQL 測試全 PASS＋正式站人工實測；桌次追�
 - [x] L19 報到練習模式 —— `/o/:slug/events/:id/practice`（同貴賓報到畫面、`mode="practice"`：不呼叫任何寫入 RPC、不受活動狀態限制、名單空白改用 10 位範例來賓、↺ 重新練習）；`src/lib/practice.ts`＋E2E 斷言零寫入
 - [x] L20 報到台練習 —— 報到台拆成共用畫面 `CheckinDesk`（動作以回呼注入）＋正式 `CheckinTab`（Supabase＋離線佇列）＋`/o/:slug/events/:id/checkin-practice`（本機記憶體：報到／發放／現場報名／撤銷、範例領取項目伴手禮/摸彩券）；E2E 練習零寫入＋正式回歸寫入；CI 補 package-lock.json 後轉綠
 - [x] L21 會員庫人員分類 —— migration `20261121000013_person_categories.sql`（person_categories＝org_settings.write、person_category_links＝persons.write＋同協會守衛、persons.affiliation 單位、event_attendees.person_id＋防重複索引、import_people_by_category 依分類匯入：一人多分類取排序最前、單位 fallback 法人名、略過已在名單）＋測試 `person_categories_test_results.sql`（C1~C8）＋設定頁「人員分類」卡、成員頁分類勾選/篩選/單位/登入提示、名單頁「依人員分類匯入」＋E2E 共用假後端 `e2e/support/supabaseMock.ts`
+- [x] L22 會員 CSV 匯入 —— migration `20261121000014_member_import.sql`（import_members：同姓名＋單位合併只補空白手機、缺分類自動建立需設定權、整批原子）＋測試 `member_import_test_results.sql`（M1~M6）＋會員頁「CSV 匯入會員」卡（Excel 掉前導 0 的手機自動補回、分類多值、先預覽）
 - SQL 測試可在本機跑：docker 起 `public.ecr.aws/supabase/postgres` 後須補 GoTrue 欄位與新版 auth.uid()（讀 request.jwt.claims），否則權限檢查全失敗
