@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { attendanceStats, groupByPerson } from './attendee';
+import { attendanceStats, categoryLabel, groupByPerson } from './attendee';
 import type { Attendee } from './types';
 
 function makeAttendee(overrides: Partial<Attendee>): Attendee {
@@ -10,6 +10,7 @@ function makeAttendee(overrides: Partial<Attendee>): Attendee {
     identity_id: null,
     guest_name: null,
     guest_org: null,
+    guest_tag: null,
     category: 'member',
     table_no: null,
     source: 'import',
@@ -76,5 +77,20 @@ describe('attendanceStats（AC-12 三來源一個總數）', () => {
       .toBe(stats.checkedIn);
     expect(stats.byCategory.member.total + stats.byCategory.guest.total + stats.byCategory.walkin.total)
       .toBe(stats.total);
+  });
+});
+
+describe('categoryLabel', () => {
+  test('shows the guest tag after 來賓 when present', () => {
+    expect(categoryLabel(makeAttendee({ category: 'guest', guest_name: '王小明', guest_tag: '貴賓' }))).toBe('來賓·貴賓');
+  });
+
+  test('falls back to 來賓 / 現場報名 without a tag', () => {
+    expect(categoryLabel(makeAttendee({ category: 'guest', guest_name: '甲' }))).toBe('來賓');
+    expect(categoryLabel(makeAttendee({ category: 'walkin', guest_name: '乙' }))).toBe('現場報名');
+  });
+
+  test('returns null for members (they show their identity kind instead)', () => {
+    expect(categoryLabel(makeAttendee({ category: 'member', identity_id: 'i1' }))).toBeNull();
   });
 });

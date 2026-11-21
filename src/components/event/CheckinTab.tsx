@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useCheckinQueue } from '../../hooks/useCheckinQueue';
-import { attendeeAffiliation, groupByPerson } from '../../lib/attendee';
+import { attendeeAffiliation, categoryLabel, groupByPerson } from '../../lib/attendee';
 import type { PersonGroup } from '../../lib/attendee';
 import { KIND_LABELS } from '../../lib/labels';
 import type { Attendee, Organization, OrgEvent } from '../../lib/types';
@@ -90,6 +90,7 @@ export default function CheckinTab({ org, event, attendees, canCheckin, onChange
       g.attendees.some((a) =>
         String(a.seq_no) === keyword ||
         (attendeeAffiliation(a) ?? '').toLowerCase().includes(keyword) ||
+        (a.guest_tag ?? '').toLowerCase().includes(keyword) ||
         a.identities?.memberships.some((m) => m.member_no.toLowerCase().includes(keyword)),
       ),
     );
@@ -150,7 +151,7 @@ export default function CheckinTab({ org, event, attendees, canCheckin, onChange
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <input value={query} onChange={(e) => setQuery(e.target.value)} autoFocus
-          placeholder="搜尋姓名／手機／序號／編號／公司…"
+          placeholder="搜尋姓名／手機／序號／編號／公司／身分…"
           className="flex-1 min-w-64 rounded border border-stone-300 px-3 py-3 text-base" />
         <span className="flex rounded border border-stone-300 overflow-hidden text-sm">
           {(Object.keys(CHANNEL_LABELS) as Channel[]).map((c) => (
@@ -215,8 +216,7 @@ export default function CheckinTab({ org, event, attendees, canCheckin, onChange
                 <div key={attendee.id} className="flex flex-wrap items-center gap-2 text-sm border-t border-stone-100 pt-2">
                   <span className="font-mono text-stone-400">#{attendee.seq_no}</span>
                   <span className="text-xs rounded-full bg-stone-100 px-2 py-0.5 text-stone-600">
-                    {attendee.identities ? KIND_LABELS[attendee.identities.kind]
-                      : attendee.category === 'walkin' ? '現場報名' : '來賓'}
+                    {attendee.identities ? KIND_LABELS[attendee.identities.kind] : categoryLabel(attendee)}
                   </span>
                   {attendeeAffiliation(attendee) && (
                     <span className="text-stone-500">{attendeeAffiliation(attendee)}</span>

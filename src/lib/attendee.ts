@@ -13,6 +13,13 @@ export function attendeeAffiliation(attendee: Attendee): string | null {
   return attendee.guest_org;
 }
 
+/** 非會員列的類別標籤：來賓（含身分標籤）／現場報名；會員回 null（改顯示身分種類） */
+export function categoryLabel(attendee: Attendee): string | null {
+  if (attendee.category === 'member') return null;
+  if (attendee.category === 'walkin') return '現場報名';
+  return attendee.guest_tag ? `來賓·${attendee.guest_tag}` : '來賓';
+}
+
 export interface PersonGroup {
   /** person id 或（來賓）attendee id */
   key: string;

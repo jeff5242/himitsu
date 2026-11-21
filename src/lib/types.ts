@@ -104,6 +104,8 @@ export interface Attendee {
   identity_id: string | null;
   guest_name: string | null;
   guest_org: string | null;
+  /** 來賓身分標籤（例：貴賓／農民；CSV 匯入的「身分」欄） */
+  guest_tag: string | null;
   category: AttendeeCategory;
   table_no: number | null;
   source: 'import' | 'manual' | 'walkin';

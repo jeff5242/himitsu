@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { supabase } from '../../lib/supabase';
-import { attendeeAffiliation, attendeeName } from '../../lib/attendee';
+import { attendeeAffiliation, attendeeName, categoryLabel } from '../../lib/attendee';
+import GuestImportCard from './GuestImportCard';
 import { KIND_LABELS, STATUS_LABELS } from '../../lib/labels';
 import type { Attendee, MembershipStatus, Organization, OrgEvent } from '../../lib/types';
 
@@ -30,8 +31,9 @@ export default function RosterTab({ org, event, attendees, canWrite, onChanged }
       const name = attendeeName(a).toLowerCase();
       const affiliation = (attendeeAffiliation(a) ?? '').toLowerCase();
       const memberNo = a.identities?.memberships[0]?.member_no.toLowerCase() ?? '';
+      const tag = (a.guest_tag ?? '').toLowerCase();
       return (
-        name.includes(keyword) || affiliation.includes(keyword) ||
+        name.includes(keyword) || affiliation.includes(keyword) || tag.includes(keyword) ||
         memberNo.includes(keyword) || String(a.seq_no) === keyword
       );
     });
@@ -54,12 +56,13 @@ export default function RosterTab({ org, event, attendees, canWrite, onChanged }
           <ImportMembersCard org={org} event={event} attendees={attendees} onDone={onChanged} />
           <AddGuestCard org={org} event={event} onDone={onChanged} />
           <PickupItemsCard org={org} event={event} />
+          <GuestImportCard org={org} event={event} attendees={attendees} onDone={onChanged} />
         </div>
       )}
 
       <div className="flex flex-wrap items-center gap-3">
         <input value={query} onChange={(e) => setQuery(e.target.value)}
-          placeholder="搜尋姓名／公司／會員編號／序號…"
+          placeholder="搜尋姓名／公司／身分／會員編號／序號…"
           className="flex-1 min-w-56 rounded border border-stone-300 px-3 py-2 text-sm" />
         <span className="text-sm text-stone-500">
           名單 {active.length} 人{removed.length > 0 && `（另有 ${removed.length} 個缺號）`}
@@ -83,9 +86,9 @@ export default function RosterTab({ org, event, attendees, canWrite, onChanged }
                   `｜${attendee.identities.memberships[0].member_no}·${STATUS_LABELS[attendee.identities.memberships[0].status]}`}
               </span>
             )}
-            {attendee.category !== 'member' && (
+            {categoryLabel(attendee) && (
               <span className="text-xs rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-blue-700">
-                {attendee.category === 'guest' ? '來賓' : '現場報名'}
+                {categoryLabel(attendee)}
               </span>
             )}
             {attendeeAffiliation(attendee) && (
