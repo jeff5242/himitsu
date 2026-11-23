@@ -1,5 +1,6 @@
 // 來賓 CSV 匯入的純函式：解碼 → 解析 → 驗證 → 匯入規劃（先預覽再匯入）
-// 欄位：姓名（必填）、單位、身分（例：貴賓／農民）、桌號
+// 欄位：姓名（必填）、單位、身分（例：貴賓／農民）、桌號、職稱、手機、葷素、攜伴人數、唱名
+import { normalizeMobile } from './phone';
 
 export interface GuestRow {
   /** CSV 原始列號（含標題列，從 1 起算），給使用者對照 Excel */
@@ -8,6 +9,12 @@ export interface GuestRow {
   org: string | null;
   tag: string | null;
   tableNo: number | null;
+  title: string | null;
+  mobile: string | null;
+  diet: string | null;
+  /** 攜伴人數（不含本人）；每人佔 1＋攜伴 個座位 */
+  companions: number;
+  rollCall: boolean;
 }
 
 export interface GuestRowError {
@@ -28,6 +35,7 @@ export interface ExistingGuest {
 export interface TableOccupancy {
   tableNo: number;
   capacity: number;
+  /** 已用座位（含攜伴） */
   seated: number;
 }
 
@@ -48,15 +56,26 @@ export const MAX_NAME_LENGTH = 50;
 export const MAX_ORG_LENGTH = 100;
 export const MAX_TAG_LENGTH = 20;
 export const MAX_IMPORT_ROWS = 1000;
+export const MAX_COMPANIONS = 20;
+const MAX_TITLE_LENGTH = 50;
+const MAX_DIET_LENGTH = 10;
 
-type Field = 'name' | 'org' | 'tag' | 'tableNo';
+type Field = 'name' | 'org' | 'tag' | 'tableNo' | 'title' | 'mobile' | 'diet' | 'companions' | 'rollCall';
 
 const HEADER_ALIASES: Record<Field, string[]> = {
   name: ['姓名', 'name'],
-  org: ['單位', '公司', '單位名稱', 'org', 'company'],
+  org: ['單位', '公司', '單位名稱', '任職單位', '服務單位', 'org', 'company'],
   tag: ['身分', '身份', '類別', 'tag'],
   tableNo: ['桌號', '桌次', '桌', 'table'],
+  title: ['職稱', 'title'],
+  mobile: ['手機', '聯絡手機', '電話', '聯絡電話', 'mobile', 'phone'],
+  diet: ['葷素', '飲食', '素食', 'diet'],
+  companions: ['攜伴人數', '攜伴', '同行人數', 'companions'],
+  rollCall: ['唱名', '唱名資格', 'roll_call'],
 };
+
+const YES_VALUES = new Set(['是', 'y', 'yes', 'v', '✓', '✔', '1', 'o', 'true', '要']);
+const NO_VALUES = new Set(['', '否', 'n', 'no', '0', 'x', 'false', '不要']);
 
 const TABLE_NO_PATTERN = /^第?\s*(\d{1,3})\s*桌?$/;
 
@@ -118,6 +137,20 @@ function parseTableNo(raw: string): number | null | 'invalid' {
   return value > 0 ? value : 'invalid';
 }
 
+function parseCompanions(raw: string): number | 'invalid' {
+  if (raw === '') return 0;
+  if (!/^\d{1,2}$/.test(raw)) return 'invalid';
+  const value = Number(raw);
+  return value <= MAX_COMPANIONS ? value : 'invalid';
+}
+
+function parseRollCall(raw: string): boolean | 'invalid' {
+  const value = raw.toLowerCase();
+  if (YES_VALUES.has(value)) return true;
+  if (NO_VALUES.has(value)) return false;
+  return 'invalid';
+}
+
 function validateRow(cells: string[], mapping: Partial<Record<Field, number>>, line: number):
   GuestRow | GuestRowError {
   const cell = (field: Field): string =>
@@ -125,16 +158,32 @@ function validateRow(cells: string[], mapping: Partial<Record<Field, number>>, l
   const name = cell('name');
   const org = cell('org');
   const tag = cell('tag');
+  const title = cell('title');
+  const diet = cell('diet');
   const rawTable = cell('tableNo');
+  const rawMobile = cell('mobile');
+  const rawCompanions = cell('companions');
+  const rawRollCall = cell('rollCall');
 
   if (name === '') return { line, message: '姓名空白' };
   if (name.length > MAX_NAME_LENGTH) return { line, message: `姓名超過 ${MAX_NAME_LENGTH} 字` };
   if (org.length > MAX_ORG_LENGTH) return { line, message: `單位超過 ${MAX_ORG_LENGTH} 字` };
   if (tag.length > MAX_TAG_LENGTH) return { line, message: `身分超過 ${MAX_TAG_LENGTH} 字` };
+  if (title.length > MAX_TITLE_LENGTH) return { line, message: `職稱超過 ${MAX_TITLE_LENGTH} 字` };
+  if (diet.length > MAX_DIET_LENGTH) return { line, message: `葷素超過 ${MAX_DIET_LENGTH} 字` };
   const tableNo = parseTableNo(rawTable);
   if (tableNo === 'invalid') return { line, message: `桌號「${rawTable}」不是正整數` };
+  const companions = parseCompanions(rawCompanions);
+  if (companions === 'invalid') return { line, message: `攜伴人數「${rawCompanions}」必須是 0～${MAX_COMPANIONS} 的整數` };
+  const rollCall = parseRollCall(rawRollCall);
+  if (rollCall === 'invalid') return { line, message: `唱名「${rawRollCall}」請填「是」或留白` };
+  const mobile = normalizeMobile(rawMobile);
+  if (mobile === 'invalid') return { line, message: `手機「${rawMobile}」格式不正確` };
 
-  return { line, name, org: org || null, tag: tag || null, tableNo };
+  return {
+    line, name, org: org || null, tag: tag || null, tableNo,
+    title: title || null, mobile, diet: diet || null, companions, rollCall,
+  };
 }
 
 export function parseGuestCsv(text: string): GuestParseResult {
@@ -185,7 +234,7 @@ export function planGuestImport(
   const tableByNo = new Map(tables.map((t) => [t.tableNo, t]));
   const incoming = new Map<number, number>();
   for (const r of toInsert) {
-    if (r.tableNo !== null) incoming.set(r.tableNo, (incoming.get(r.tableNo) ?? 0) + 1);
+    if (r.tableNo !== null) incoming.set(r.tableNo, (incoming.get(r.tableNo) ?? 0) + 1 + r.companions);
   }
 
   const tableNos = [...incoming.keys()].sort((a, b) => a - b);

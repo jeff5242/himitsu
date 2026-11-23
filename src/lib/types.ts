@@ -110,6 +110,13 @@ export interface Attendee {
   guest_tag: string | null;
   /** 依人員分類從會員庫匯入的來賓，連回成員 */
   person_id?: string | null;
+  /** L24 來賓詳細欄位（舊資料或測試假資料可能缺，讀取時以預設值處理） */
+  guest_title?: string | null;
+  guest_mobile?: string | null;
+  diet?: string | null;
+  /** 攜伴人數（不含本人）；佔座位＝1＋攜伴 */
+  companions?: number;
+  roll_call?: boolean;
   category: AttendeeCategory;
   table_no: number | null;
   source: 'import' | 'manual' | 'walkin';

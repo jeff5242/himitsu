@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { attendeeName } from '../../lib/attendee';
+import { seatsOf, seatsUsed } from '../../lib/seats';
 import type { Attendee } from '../../lib/types';
 import type { EventTable } from './TablesTab';
 
@@ -23,10 +24,12 @@ export default function TableFloorView({ tables, byTable, isDark, query, onSelec
     const dots = new Map<number, { angleDeg: number; attendee: Attendee | null }[]>();
     for (const table of tables) {
       const seated = byTable.get(table.table_no) ?? [];
-      const seats = Math.max(table.capacity, seated.length);
+      // 每位來賓佔 1＋攜伴 個點（攜伴點沿用本人的報到狀態）
+      const occupants = seated.flatMap((a) => Array.from({ length: seatsOf(a) }, () => a));
+      const seats = Math.max(table.capacity, occupants.length);
       dots.set(table.table_no, Array.from({ length: seats }, (_, i) => ({
         angleDeg: (360 / seats) * i - 90,
-        attendee: seated[i] ?? null,
+        attendee: occupants[i] ?? null,
       })));
     }
     return dots;
@@ -36,7 +39,8 @@ export default function TableFloorView({ tables, byTable, isDark, query, onSelec
     <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))' }}>
       {tables.map((table) => {
         const seated = byTable.get(table.table_no) ?? [];
-        const isFull = seated.length >= table.capacity;
+        const used = seatsUsed(seated);
+        const isFull = used >= table.capacity;
         const checkedIn = seated.filter((a) => a.checked_in_at).length;
         const isHit = keyword !== '' && seated.some((a) => attendeeName(a).includes(keyword));
         return (
@@ -61,7 +65,7 @@ export default function TableFloorView({ tables, byTable, isDark, query, onSelec
                 </span>
               )}
               <span className={`text-xs tabular-nums ${isDark ? 'text-stone-400' : 'text-stone-500'}`}>
-                報到 {checkedIn}｜{seated.length}／{table.capacity}
+                報到 {checkedIn}｜{used}／{table.capacity}
               </span>
             </span>
             {(seatDots.get(table.table_no) ?? []).map((seat, index) => {

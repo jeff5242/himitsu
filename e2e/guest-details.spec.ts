@@ -1,0 +1,69 @@
+import { expect, test } from '@playwright/test';
+import { guest, loginAs, mockSupabase } from './support/supabaseMock';
+import type { MockState } from './support/supabaseMock';
+
+// 來賓詳細欄位（職稱／手機／葷素／攜伴／唱名）、唱名名單、攜伴佔座位（假後端，不碰真實資料）
+
+const base = (): MockState => ({ writes: [], attendees: [], greetings: [], submitted: [], rpcBodies: {} });
+
+test('CSV 匯入來賓帶入職稱、手機、葷素、攜伴、唱名', async ({ page }) => {
+  const state = base();
+  await mockSupabase(page, state);
+  await loginAs(page);
+  await page.goto('/o/miwu/events/ev-1');
+
+  const csv = '﻿姓名,任職單位,職稱,聯絡手機,葷素,攜伴人數,唱名,桌號\n王董,米屋智農,董事長,912345678,素,2,是,1\n陳大華,二林鎮,,,葷,,,5\n';
+  await page.getByLabel('選擇 CSV 檔').setInputFiles({ name: '來賓.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'utf-8') });
+  await expect(page.getByRole('cell', { name: '董事長' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: '+2' })).toBeVisible();
+  await page.getByRole('button', { name: '確認匯入 2 人' }).click();
+  await expect(page.getByText('已匯入 2 人')).toBeVisible();
+  expect(state.rpcBodies?.['/rest/v1/rpc/import_guests']?.[0]).toMatchObject({
+    p_rows: [
+      { name: '王董', org: '米屋智農', title: '董事長', mobile: '0912345678', diet: '素', companions: 2, roll_call: true, table_no: 1 },
+      { name: '陳大華', org: '二林鎮', title: null, mobile: null, diet: '葷', companions: 0, roll_call: false, table_no: 5 },
+    ],
+  });
+});
+
+test('名單勾唱名 → 唱名名單只列已報到者、依名單順序', async ({ page }) => {
+  const state = base();
+  state.attendees = [
+    { ...guest('王董', '米屋智農', '貴賓', 1, true), seq_no: 1, roll_call: false, guest_title: '董事長' } as never,
+    { ...guest('李總', '彰化縣農會', '貴賓', 1, true), seq_no: 2, roll_call: true } as never,
+    { ...guest('陳主任', '二林鎮', '貴賓', 5, false), seq_no: 3, roll_call: true } as never,
+  ];
+  await mockSupabase(page, state);
+  await loginAs(page);
+
+  await page.goto('/o/miwu/events/ev-1');
+  await page.getByRole('button', { name: '王董 唱名' }).click();
+  await expect(page.getByRole('button', { name: '王董 唱名' })).toHaveAttribute('aria-pressed', 'true');
+
+  await page.goto('/o/miwu/events/ev-1/roll-call');
+  await expect(page.getByRole('heading', { name: '📣 唱名名單' })).toBeVisible();
+  const names = page.locator('ol li p.text-4xl');
+  await expect(names).toHaveText(['王董', '李總']);
+  await expect(page.getByText('董事長・米屋智農')).toBeVisible();
+  await expect(page.getByText('尚未報到 1 位（展開）')).toBeVisible();
+  await page.locator('ol li').first().getByRole('button', { name: '✓ 已唱名' }).click();
+  await expect(page.locator('ol li').first().getByRole('button', { name: '↺ 取消' })).toBeVisible();
+  await page.screenshot({ path: 'test-results/roll-call.png', fullPage: true });
+});
+
+test('攜伴佔座位：桌次顯示含攜伴人數與素食份數', async ({ page }) => {
+  const state = base();
+  state.attendees = [
+    { ...guest('王董', '米屋智農', '貴賓', 1), companions: 2, diet: '素' } as never,
+    { ...guest('李總', '彰化縣農會', '貴賓', 1), companions: 0, diet: '葷' } as never,
+  ];
+  await mockSupabase(page, state);
+  await loginAs(page);
+  await page.goto('/o/miwu/events/ev-1');
+  await page.getByRole('button', { name: '桌次' }).click();
+  await page.getByRole('button', { name: '圓桌卡' }).click();
+  const table1 = page.locator('section', { hasText: '桌 1' }).first();
+  await expect(table1.getByText('4／10')).toBeVisible();
+  await expect(table1.getByText('素 3')).toBeVisible();
+  await expect(table1.getByText('王董＋2')).toBeVisible();
+});

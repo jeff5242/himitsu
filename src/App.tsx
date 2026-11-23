@@ -13,6 +13,7 @@ import TableScreenPage from './pages/TableScreenPage';
 import VipCheckinPage from './pages/VipCheckinPage';
 import BlessingWallPage from './pages/BlessingWallPage';
 import CheckinPracticePage from './pages/CheckinPracticePage';
+import RollCallPage from './pages/RollCallPage';
 import FeesPage from './pages/FeesPage';
 import DevicesPage from './pages/DevicesPage';
 import InvitePage from './pages/InvitePage';
@@ -37,6 +38,7 @@ export default function App() {
           <Route path="/o/:slug/events/:eventId/vip" element={<RequireAuth><VipCheckinPage /></RequireAuth>} />
           <Route path="/o/:slug/events/:eventId/practice" element={<RequireAuth><VipCheckinPage mode="practice" /></RequireAuth>} />
           <Route path="/o/:slug/events/:eventId/checkin-practice" element={<RequireAuth><CheckinPracticePage /></RequireAuth>} />
+          <Route path="/o/:slug/events/:eventId/roll-call" element={<RequireAuth><RollCallPage /></RequireAuth>} />
           <Route path="/o/:slug/events/:eventId/blessings" element={<RequireAuth><BlessingWallPage /></RequireAuth>} />
           <Route path="/o/:slug/fees" element={<RequireAuth><FeesPage /></RequireAuth>} />
           <Route path="/o/:slug/devices" element={<RequireAuth><DevicesPage /></RequireAuth>} />

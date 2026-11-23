@@ -2,8 +2,9 @@ import { describe, expect, test } from 'vitest';
 import { decodeCsvBytes, parseCsv, parseGuestCsv, planGuestImport } from './guestCsv';
 import type { GuestRow } from './guestCsv';
 
+const EXTRA = { title: null, mobile: null, diet: null, companions: 0, rollCall: false };
 const row = (name: string, overrides: Partial<GuestRow> = {}): GuestRow => ({
-  line: 2, name, org: null, tag: null, tableNo: null, ...overrides,
+  line: 2, name, org: null, tag: null, tableNo: null, ...EXTRA, ...overrides,
 });
 
 describe('decodeCsvBytes', () => {
@@ -37,8 +38,8 @@ describe('parseGuestCsv', () => {
 
     expect(result.errors).toEqual([]);
     expect(result.rows).toEqual([
-      { line: 2, name: '王小明', org: '米屋智農', tag: '貴賓', tableNo: 3 },
-      { line: 3, name: '陳大華', org: '後壁', tag: '農民', tableNo: null },
+      { line: 2, name: '王小明', org: '米屋智農', tag: '貴賓', tableNo: 3, ...EXTRA },
+      { line: 3, name: '陳大華', org: '後壁', tag: '農民', tableNo: null, ...EXTRA },
     ]);
   });
 
@@ -49,7 +50,7 @@ describe('parseGuestCsv', () => {
 
   test('only 姓名 is required; other columns may be absent', () => {
     const result = parseGuestCsv('姓名\n王小明');
-    expect(result.rows).toEqual([{ line: 2, name: '王小明', org: null, tag: null, tableNo: null }]);
+    expect(result.rows).toEqual([{ line: 2, name: '王小明', org: null, tag: null, tableNo: null, ...EXTRA }]);
   });
 
   test('reports a missing 姓名 header', () => {
@@ -60,7 +61,7 @@ describe('parseGuestCsv', () => {
 
   test('skips blank lines and trims whitespace', () => {
     const result = parseGuestCsv('姓名,單位\n  王小明  , 米屋 \n,\n\n');
-    expect(result.rows).toEqual([{ line: 2, name: '王小明', org: '米屋', tag: null, tableNo: null }]);
+    expect(result.rows).toEqual([{ line: 2, name: '王小明', org: '米屋', tag: null, tableNo: null, ...EXTRA }]);
   });
 
   test('reports rows with an empty name, a bad table number or an over-long tag', () => {
@@ -77,6 +78,36 @@ describe('parseGuestCsv', () => {
     const result = parseGuestCsv('姓名,單位\n王小明,米屋\n王小明,米屋\n王小明,後壁');
     expect(result.rows.map((r) => r.line)).toEqual([2, 4]);
     expect(result.errors).toEqual([{ line: 3, message: '與第 2 列重複（同姓名＋單位）' }]);
+  });
+});
+
+describe('parseGuestCsv detail columns', () => {
+  test('reads 職稱、手機、葷素、攜伴人數、唱名 with aliases', () => {
+    const result = parseGuestCsv([
+      '姓名,任職單位,職稱,聯絡手機,葷素,攜伴人數,唱名,桌號',
+      '王董,米屋智農,董事長,912345678,素,2,是,1',
+      '陳大華,二林鎮,,,葷,,,2',
+    ].join('\n'));
+    expect(result.errors).toEqual([]);
+    expect(result.rows[0]).toMatchObject({
+      org: '米屋智農', title: '董事長', mobile: '0912345678', diet: '素', companions: 2, rollCall: true, tableNo: 1,
+    });
+    expect(result.rows[1]).toMatchObject({ diet: '葷', companions: 0, rollCall: false });
+  });
+
+  test('accepts V／Y／✓／1 as 唱名 and blank／否 as no', () => {
+    const result = parseGuestCsv('姓名,唱名\n甲,V\n乙,Y\n丙,✓\n丁,1\n戊,否\n己,');
+    expect(result.rows.map((r) => r.rollCall)).toEqual([true, true, true, true, false, false]);
+  });
+
+  test('reports bad 攜伴人數, 唱名 and 手機 values', () => {
+    const result = parseGuestCsv('姓名,攜伴人數,唱名,手機\n甲,兩位,,\n乙,21,,\n丙,,也許,\n丁,,,abc');
+    expect(result.errors).toEqual([
+      { line: 2, message: '攜伴人數「兩位」必須是 0～20 的整數' },
+      { line: 3, message: '攜伴人數「21」必須是 0～20 的整數' },
+      { line: 4, message: '唱名「也許」請填「是」或留白' },
+      { line: 5, message: '手機「abc」格式不正確' },
+    ]);
   });
 });
 
@@ -106,6 +137,14 @@ describe('planGuestImport', () => {
       { tableNo: 1, capacity: 3, total: 4 },
       { tableNo: 2, capacity: 1, total: 2 },
     ]);
+  });
+
+  test('counts companions as seats', () => {
+    const plan = planGuestImport(
+      [row('王董', { tableNo: 1, companions: 2 }), row('李總', { tableNo: 1, companions: 1 })],
+      [], [{ tableNo: 1, capacity: 5, seated: 1 }], 10,
+    );
+    expect(plan.overflows).toEqual([{ tableNo: 1, capacity: 5, total: 6 }]);
   });
 
   test('does not count skipped guests toward capacity', () => {

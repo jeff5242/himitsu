@@ -7,12 +7,16 @@ interface SampleGuest {
   org: string | null;
   tag: '貴賓' | '農民';
   tableNo: number | null;
+  title?: string;
+  diet?: string;
+  companions?: number;
+  rollCall?: boolean;
 }
 
 const SAMPLE_GUESTS: readonly SampleGuest[] = [
-  { name: '王小明', org: '米屋智農', tag: '貴賓', tableNo: 1 },
+  { name: '王小明', org: '米屋智農', tag: '貴賓', tableNo: 1, title: '董事長', diet: '素', rollCall: true },
   { name: '李美華', org: '米屋智農', tag: '貴賓', tableNo: 1 },
-  { name: '吳建宏', org: '彰化縣農會', tag: '貴賓', tableNo: 1 },
+  { name: '吳建宏', org: '彰化縣農會', tag: '貴賓', tableNo: 1, title: '總幹事', companions: 1, rollCall: true },
   { name: '陳大華', org: '二林鎮', tag: '農民', tableNo: 2 },
   { name: '陳阿土', org: '二林鎮', tag: '農民', tableNo: 2 },
   { name: '蔡明哲', org: '二林鎮', tag: '農民', tableNo: 2 },
@@ -36,6 +40,10 @@ function buildSampleRoster(eventId: string): Attendee[] {
     guest_tag: g.tag,
     category: 'guest',
     table_no: g.tableNo,
+    guest_title: g.title ?? null,
+    diet: g.diet ?? null,
+    companions: g.companions ?? 0,
+    roll_call: g.rollCall ?? false,
     source: 'manual',
     checked_in_at: null,
     removed_at: null,

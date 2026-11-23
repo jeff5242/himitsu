@@ -4,6 +4,8 @@ import { supabase } from '../../lib/supabase';
 import { attendeeAffiliation, attendeeName, categoryLabel } from '../../lib/attendee';
 import GuestImportCard from './GuestImportCard';
 import ImportByCategoryCard from './ImportByCategoryCard';
+import GuestDetailEditor from './GuestDetailEditor';
+import { isVegetarian } from '../../lib/seats';
 import { useOrgFeatures } from '../../hooks/useOrgFeatures';
 import { KIND_LABELS, STATUS_LABELS } from '../../lib/labels';
 import type { Attendee, MembershipStatus, Organization, OrgEvent } from '../../lib/types';
@@ -35,12 +37,22 @@ export default function RosterTab({ org, event, attendees, canWrite, onChanged }
       const affiliation = (attendeeAffiliation(a) ?? '').toLowerCase();
       const memberNo = a.identities?.memberships[0]?.member_no.toLowerCase() ?? '';
       const tag = (a.guest_tag ?? '').toLowerCase();
+      const title = (a.guest_title ?? '').toLowerCase();
       return (
-        name.includes(keyword) || affiliation.includes(keyword) || tag.includes(keyword) ||
+        name.includes(keyword) || affiliation.includes(keyword) || tag.includes(keyword) || title.includes(keyword) ||
         memberNo.includes(keyword) || String(a.seq_no) === keyword
       );
     });
   }, [active, query]);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const toggleRollCall = async (attendee: Attendee) => {
+    const { data, error } = await supabase.from('event_attendees')
+      .update({ roll_call: !attendee.roll_call }).eq('id', attendee.id).select();
+    if (error || !data?.length) setNotice(`唱名設定被拒${error ? `：${error.message}` : '（權限不足）'}`);
+    else { setNotice(null); await onChanged(); }
+  };
 
   const removeAttendee = async (attendee: Attendee) => {
     const { data, error } = await supabase
@@ -66,7 +78,7 @@ export default function RosterTab({ org, event, attendees, canWrite, onChanged }
 
       <div className="flex flex-wrap items-center gap-3">
         <input value={query} onChange={(e) => setQuery(e.target.value)}
-          placeholder="搜尋姓名／公司／身分／會員編號／序號…"
+          placeholder="搜尋姓名／公司／職稱／身分／會員編號／序號…"
           className="flex-1 min-w-56 rounded border border-stone-300 px-3 py-2 text-sm" />
         <span className="text-sm text-stone-500">
           名單 {active.length} 人{removed.length > 0 && `（另有 ${removed.length} 個缺號）`}
@@ -98,16 +110,47 @@ export default function RosterTab({ org, event, attendees, canWrite, onChanged }
             {attendeeAffiliation(attendee) && (
               <span className="text-stone-500">{attendeeAffiliation(attendee)}</span>
             )}
+            {attendee.guest_title && <span className="text-stone-500">{attendee.guest_title}</span>}
+            {attendee.diet && (
+              <span className={`text-xs rounded-full px-2 py-0.5 border ${isVegetarian(attendee.diet)
+                ? 'bg-green-50 border-green-300 text-green-700' : 'bg-stone-50 border-stone-200 text-stone-500'}`}>
+                {attendee.diet}
+              </span>
+            )}
+            {(attendee.companions ?? 0) > 0 && (
+              <span className="text-xs rounded-full bg-sky-50 border border-sky-200 px-2 py-0.5 text-sky-700">
+                攜伴 {attendee.companions}
+              </span>
+            )}
             {attendee.table_no !== null && (
               <span className="text-xs rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-700">
                 桌 {attendee.table_no}
               </span>
             )}
-            {canWrite && (
-              <button onClick={() => void removeAttendee(attendee)}
-                className="ml-auto rounded border border-red-200 text-red-600 px-2 py-1 hover:bg-red-50">
-                除名
-              </button>
+            {canWrite ? (
+              <span className="ml-auto flex items-center gap-2">
+                <button onClick={() => void toggleRollCall(attendee)} aria-pressed={!!attendee.roll_call}
+                  aria-label={`${attendeeName(attendee)} 唱名`}
+                  className={`rounded border px-2 py-1 ${attendee.roll_call
+                    ? 'border-amber-400 bg-amber-50 font-bold text-amber-800' : 'border-stone-200 text-stone-400 hover:bg-stone-50'}`}>
+                  {attendee.roll_call ? '★ 唱名' : '☆ 唱名'}
+                </button>
+                <button onClick={() => setEditingId(editingId === attendee.id ? null : attendee.id)}
+                  className="rounded border border-stone-300 px-2 py-1 hover:bg-stone-100">編輯</button>
+                <button onClick={() => void removeAttendee(attendee)}
+                  className="rounded border border-red-200 text-red-600 px-2 py-1 hover:bg-red-50">
+                  除名
+                </button>
+              </span>
+            ) : attendee.roll_call ? <span className="ml-auto text-xs font-bold text-amber-700">★ 唱名</span> : null}
+            {editingId === attendee.id && (
+              <GuestDetailEditor attendee={attendee}
+                onDone={async (error) => {
+                  if (error) { setNotice(error); return; }
+                  setNotice(null);
+                  setEditingId(null);
+                  await onChanged();
+                }} />
             )}
           </div>
         ))}
@@ -247,6 +290,11 @@ function AddGuestCard({
 }: { org: Organization; event: OrgEvent; onDone: () => Promise<void> }) {
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
+  const [title, setTitle] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [diet, setDiet] = useState('');
+  const [companions, setCompanions] = useState(0);
+  const [rollCall, setRollCall] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const handleSubmit = async (formEvent: FormEvent) => {
@@ -254,22 +302,42 @@ function AddGuestCard({
     const { error } = await supabase.from('event_attendees').insert({
       org_id: org.id, event_id: event.id, category: 'guest', source: 'manual',
       guest_name: name.trim(), guest_org: company.trim() || null,
+      guest_title: title.trim() || null, guest_mobile: mobile.trim() || null,
+      diet: diet || null, companions, roll_call: rollCall,
     });
     if (error) { setMessage(`新增被拒：${error.message}`); return; }
     setMessage(null);
-    setName('');
-    setCompany('');
+    setName(''); setCompany(''); setTitle(''); setMobile(''); setDiet(''); setCompanions(0); setRollCall(false);
     await onDone();
   };
 
   return (
-    <section className="bg-white rounded-xl shadow p-4 space-y-2 text-sm">
+    <section className="bg-white rounded-xl shadow p-4 space-y-2 text-sm sm:col-span-2">
       <h3 className="font-bold">加來賓</h3>
       <form onSubmit={handleSubmit} className="flex flex-wrap gap-2">
         <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="姓名"
           className="flex-1 min-w-28 rounded border border-stone-300 px-3 py-2" />
-        <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="單位（選填）"
+        <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="任職單位（選填）"
           className="flex-1 min-w-28 rounded border border-stone-300 px-3 py-2" />
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="職稱（選填）"
+          className="flex-1 min-w-24 rounded border border-stone-300 px-3 py-2" />
+        <input value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="聯絡手機（選填）"
+          className="flex-1 min-w-28 rounded border border-stone-300 px-3 py-2" />
+        <select value={diet} onChange={(e) => setDiet(e.target.value)} aria-label="葷素"
+          className="rounded border border-stone-300 px-2 py-2">
+          <option value="">葷素（未填）</option>
+          <option value="葷">葷</option>
+          <option value="素">素</option>
+          <option value="蛋奶素">蛋奶素</option>
+        </select>
+        <label className="inline-flex items-center gap-1">攜伴
+          <input type="number" min={0} max={20} value={companions} aria-label="攜伴人數"
+            onChange={(e) => setCompanions(Math.max(0, Math.min(20, Number(e.target.value) || 0)))}
+            className="w-16 rounded border border-stone-300 px-2 py-2" />人
+        </label>
+        <label className="inline-flex items-center gap-1">
+          <input type="checkbox" checked={rollCall} onChange={(e) => setRollCall(e.target.checked)} />唱名
+        </label>
         <button type="submit" className="rounded bg-amber-600 px-4 py-2 font-bold text-white hover:bg-amber-700">
           新增
         </button>

@@ -103,6 +103,10 @@ export default function EventPage() {
             className="rounded border border-amber-300 bg-amber-50 px-3 py-1.5 text-amber-800 hover:bg-amber-100">
             👑 貴賓報到畫面
           </Link>
+          <Link to={`/o/${org.slug}/events/${event.id}/roll-call`} target="_blank"
+            className="rounded border border-stone-300 px-3 py-1.5 hover:bg-stone-100">
+            📣 唱名名單
+          </Link>
           <Link to={`/o/${org.slug}/events/${event.id}/blessings`} target="_blank"
             className="rounded border border-stone-300 px-3 py-1.5 hover:bg-stone-100">
             🙏 祝福牆

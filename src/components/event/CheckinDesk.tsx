@@ -135,6 +135,16 @@ export default function CheckinDesk(props: CheckinDeskProps) {
                   {attendeeAffiliation(attendee) && (
                     <span className="text-stone-500">{attendeeAffiliation(attendee)}</span>
                   )}
+                  {attendee.guest_title && <span className="text-stone-500">{attendee.guest_title}</span>}
+                  {attendee.roll_call && (
+                    <span className="text-xs rounded-full bg-amber-50 border border-amber-300 px-2 py-0.5 font-bold text-amber-800">★ 唱名</span>
+                  )}
+                  {attendee.diet && <span className="text-xs text-stone-500">{attendee.diet}</span>}
+                  {(attendee.companions ?? 0) > 0 && (
+                    <span className="text-xs rounded-full bg-sky-50 border border-sky-200 px-2 py-0.5 text-sky-700">
+                      攜伴 {attendee.companions}・共 {1 + (attendee.companions ?? 0)} 位
+                    </span>
+                  )}
                   {attendee.table_no !== null && (
                     <span className="text-xs rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-700">
                       桌 {attendee.table_no}

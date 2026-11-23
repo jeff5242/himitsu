@@ -41,6 +41,7 @@ npm install
    - `..._person_categories.sql`（會員庫人員分類、成員單位、依分類匯入活動名單）
    - `..._member_import.sql`（會員 CSV 匯入：合併既有、自動建分類）
    - `..._feature_switches.sql`（功能開關：會員／會費／裝置可各自關閉隱藏）
+   - `..._guest_details.sql`（來賓職稱/手機/葷素/攜伴/唱名；攜伴佔座位）
 5. 驗證：貼上執行 `supabase/tests/` 下的測試（結果表格版直接看 Results；`*_results.sql` 優先）
 
 ### 3. 啟動與示範資料（3 分鐘）
@@ -74,6 +75,7 @@ SQL 層測試（貼 SQL Editor，全自動 PASS/FAIL）：
 - `supabase/tests/vip_greetings_test_results.sql` —— 貴賓祝福／簽名（需已報到/格式驗證/撤下權限/跨協會隔離，表格版）
 - `supabase/tests/person_categories_test_results.sql` —— 人員分類（權限/同名/跨協會/依分類匯入/重匯略過，表格版）
 - `supabase/tests/member_import_test_results.sql` —— 會員 CSV 匯入（合併/補手機/自動建分類權限/整批回滾，表格版）
+- `supabase/tests/guest_details_test_results.sql` —— 來賓詳細欄位與攜伴佔座位（滿桌/縮桌/互換/除名釋出，表格版）
 
 ## 功能地圖（EPIC-0＋EPIC-1）
 

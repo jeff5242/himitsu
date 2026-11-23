@@ -206,8 +206,14 @@ function VipCard({ entry, isQueued, canCheckin, onCheckIn, onReopen }: VipCardPr
           {entry.tag}
         </span>
       </div>
-      <p className="text-stone-500 min-h-6">{attendee.identities?.title ? `${attendee.identities.title}・` : ''}{entry.org}</p>
-      <p className="text-lg">🍽️ {attendee.table_no !== null ? `第 ${attendee.table_no} 桌` : '未排桌'}</p>
+      <p className="text-stone-500 min-h-6">
+        {[attendee.guest_title ?? attendee.identities?.title, entry.org].filter(Boolean).join('・')}
+      </p>
+      <p className="text-lg">
+        🍽️ {attendee.table_no !== null ? `第 ${attendee.table_no} 桌` : '未排桌'}
+        {(attendee.companions ?? 0) > 0 && <span className="ml-2 text-base text-sky-700">攜伴 {attendee.companions}</span>}
+        {attendee.roll_call && <span className="ml-2 text-base text-amber-700">★ 唱名</span>}
+      </p>
       {done ? (
         <button type="button" onClick={onReopen}
           className="mt-auto rounded-xl bg-green-50 px-4 py-3 text-lg font-bold text-green-700">

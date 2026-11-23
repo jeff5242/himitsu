@@ -56,7 +56,9 @@ export default function WelcomeCard({
         <p className="text-2xl tracking-[0.6em] text-amber-300">歡迎蒞臨</p>
         <div>
           <p className="text-5xl sm:text-6xl font-black">{entry.name}</p>
-          <p className="mt-3 text-xl text-stone-300">{[entry.org, entry.tag].filter(Boolean).join('・')}</p>
+          <p className="mt-3 text-xl text-stone-300">
+            {[attendee.guest_title, entry.org, entry.tag].filter(Boolean).join('・')}
+          </p>
         </div>
 
         <div className="w-full max-w-sm rounded-3xl border-2 border-amber-400 bg-amber-400/10 px-6 py-5">
@@ -65,6 +67,9 @@ export default function WelcomeCard({
             <>
               <p className="text-7xl font-black text-amber-300">第 {attendee.table_no} 桌</p>
               {tableLabel && <p className="mt-1 text-xl text-amber-100">{tableLabel}</p>}
+              {(attendee.companions ?? 0) > 0 && (
+                <p className="mt-1 text-lg text-amber-100">攜伴 {attendee.companions} 位，共 {1 + (attendee.companions ?? 0)} 位入座</p>
+              )}
             </>
           ) : (
             <p className="py-4 text-3xl font-bold text-amber-100">請洽接待人員</p>

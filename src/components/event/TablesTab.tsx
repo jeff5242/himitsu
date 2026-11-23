@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { attendeeName } from '../../lib/attendee';
+import { seatsOf, seatsUsed, vegetarianSeats } from '../../lib/seats';
 import TableFloorView from './TableFloorView';
 import type { Attendee, Organization, OrgEvent } from '../../lib/types';
 
@@ -57,6 +58,10 @@ export default function TablesTab({ org, event, attendees, canWrite, onChanged }
 
   const active = useMemo(() => attendees.filter((a) => !a.removed_at), [attendees]);
   const unassigned = useMemo(() => active.filter((a) => a.table_no === null), [active]);
+  const seatsAt = (tableNo: number): number => seatsUsed(byTable.get(tableNo) ?? []);
+  const nameWithCompanions = (a: Attendee): string =>
+    (a.companions ?? 0) > 0 ? `${attendeeName(a)}＋${a.companions}` : attendeeName(a);
+
   const byTable = useMemo(() => {
     const map = new Map<number, Attendee[]>();
     for (const attendee of active) {
@@ -109,7 +114,8 @@ export default function TablesTab({ org, event, attendees, canWrite, onChanged }
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <span className="text-stone-500">
-          {tables.length} 桌／未排桌 {unassigned.length} 人
+          {tables.length} 桌／未排桌 {unassigned.length} 人（{seatsUsed(unassigned)} 位）
+          {vegetarianSeats(active) > 0 && `／素食共 ${vegetarianSeats(active)} 份`}
         </span>
         <span className="flex rounded border border-stone-300 overflow-hidden">
           {(Object.keys(VIEW_LABELS) as TableView[]).map((key) => (
@@ -137,7 +143,7 @@ export default function TablesTab({ org, event, attendees, canWrite, onChanged }
         <div className="bg-white rounded-xl shadow p-6">
           <TableFloorView tables={tables} byTable={byTable} onSelect={() => changeView('cards')} />
           <p className="text-xs text-stone-400 mt-4">
-            ● 綠＝已報到、灰＝已入座未報到、空心＝空位；點桌子切回圓桌卡操作。滑鼠停在點上可看姓名。
+            ● 綠＝已報到、灰＝已入座未報到、空心＝空位；攜伴各佔一個點。點桌子切回圓桌卡操作。滑鼠停在點上可看姓名。
           </p>
         </div>
       )}
@@ -155,11 +161,12 @@ export default function TablesTab({ org, event, attendees, canWrite, onChanged }
                   </span>
                 )}
                 <span className={`text-xs font-bold tabular-nums ${
-                  seated.length >= table.capacity ? 'text-red-600' : 'text-green-700'}`}>
-                  {seated.length}／{table.capacity}
+                  seatsUsed(seated) >= table.capacity ? 'text-red-600' : 'text-green-700'}`}>
+                  {seatsUsed(seated)}／{table.capacity}
                 </span>
+                {vegetarianSeats(seated) > 0 && <span className="text-xs text-green-700">素 {vegetarianSeats(seated)}</span>}
                 <span className="text-stone-600 flex-1 min-w-64">
-                  {seated.map((a) => attendeeName(a)).join('、') || '（空桌）'}
+                  {seated.map(nameWithCompanions).join('、') || '（空桌）'}
                 </span>
               </div>
             );
@@ -170,7 +177,9 @@ export default function TablesTab({ org, event, attendees, canWrite, onChanged }
       {view === 'cards' && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {tables.map((table) => {
           const seated = byTable.get(table.table_no) ?? [];
-          const isFull = seated.length >= table.capacity;
+          const used = seatsUsed(seated);
+          const isFull = used >= table.capacity;
+          const veg = vegetarianSeats(seated);
           return (
             <section key={table.id}
               className={`bg-white rounded-xl shadow p-4 space-y-2 border-t-4 ${
@@ -178,14 +187,15 @@ export default function TablesTab({ org, event, attendees, canWrite, onChanged }
               <div className="flex items-center gap-2">
                 <span className="font-black">桌 {table.table_no}</span>
                 <TableLabel table={table} canWrite={canWrite} onSave={saveLabel} />
+                {veg > 0 && <span className="text-xs rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-green-700">素 {veg}</span>}
                 <span className={`ml-auto text-sm font-bold tabular-nums ${isFull ? 'text-red-600' : 'text-green-700'}`}>
-                  {seated.length}／{table.capacity}
+                  {used}／{table.capacity}
                 </span>
               </div>
               <ul className="text-sm space-y-1">
                 {seated.map((attendee) => (
                   <li key={attendee.id} className="flex items-center gap-2">
-                    <span>{attendeeName(attendee)}</span>
+                    <span>{nameWithCompanions(attendee)}</span>
                     {canWrite && (
                       <select
                         value={String(table.table_no)}
@@ -198,7 +208,7 @@ export default function TablesTab({ org, event, attendees, canWrite, onChanged }
                         {tables.map((t) => (
                           <option key={t.table_no} value={t.table_no}
                             disabled={t.table_no !== table.table_no &&
-                              (byTable.get(t.table_no)?.length ?? 0) >= t.capacity}>
+                              seatsAt(t.table_no) + seatsOf(attendee) > t.capacity}>
                             桌 {t.table_no}{t.label ? `·${t.label}` : ''}
                           </option>
                         ))}
@@ -228,8 +238,8 @@ export default function TablesTab({ org, event, attendees, canWrite, onChanged }
                 >
                   <option value="">＋ 安排入座…</option>
                   {unassigned.map((attendee) => (
-                    <option key={attendee.id} value={attendee.id}>
-                      #{attendee.seq_no} {attendeeName(attendee)}
+                    <option key={attendee.id} value={attendee.id} disabled={used + seatsOf(attendee) > table.capacity}>
+                      #{attendee.seq_no} {nameWithCompanions(attendee)}
                     </option>
                   ))}
                 </select>

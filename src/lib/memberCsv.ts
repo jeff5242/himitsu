@@ -1,6 +1,9 @@
 // 會員 CSV 匯入的純函式：解析 → 驗證 → 匯入規劃（新會員／合併既有會員／要新建的分類）
 // 欄位：姓名（必填）、單位、手機、分類（可多個，用「、」「／」「,」分隔）
 import { parseCsv } from './guestCsv';
+import { normalizeMobile } from './phone';
+
+export { normalizeMobile };
 import { MAX_CATEGORY_NAME_LENGTH } from './personCategories';
 import type { PersonCategory } from './personCategories';
 
@@ -50,19 +53,9 @@ const HEADER_ALIASES: Record<Field, string[]> = {
   categories: ['分類', '類別', '身分', '身份', 'category'],
 };
 
-const MOBILE_CHARS = /^[0-9+\-()\s]{6,20}$/;
-const EXCEL_DROPPED_ZERO = /^9\d{8}$/;
 const CATEGORY_SEPARATORS = /[、,，/／;；\s]+/;
 
 const memberKey = (name: string, affiliation: string | null): string => `${name}\u0000${affiliation ?? ''}`;
-
-/** Excel 把 0912345678 存成數字時會掉前導 0（變 912345678），這裡補回 */
-export function normalizeMobile(raw: string): string | null | 'invalid' {
-  const value = raw.trim();
-  if (value === '') return null;
-  if (EXCEL_DROPPED_ZERO.test(value)) return `0${value}`;
-  return MOBILE_CHARS.test(value) ? value : 'invalid';
-}
 
 export function splitCategories(raw: string): string[] {
   return [...new Set(raw.split(CATEGORY_SEPARATORS).map((s) => s.trim()).filter((s) => s !== ''))];

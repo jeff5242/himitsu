@@ -95,8 +95,20 @@ export async function mockSupabase(page: Page, state: MockState): Promise<void> 
       return json(['events.write', 'checkin.write', 'persons.write', 'org_settings.write'].map((perm) => ({ perm })));
     }
     if (path === '/rest/v1/events') return one([state.event ?? EVENT]);
-    if (path === '/rest/v1/event_attendees') return json(state.attendees);
-    if (path === '/rest/v1/event_tables') return json([{ table_no: 1, label: '貴賓桌' }, { table_no: 5, label: null }]);
+    if (path === '/rest/v1/event_attendees') {
+      if (method === 'PATCH') {
+        const id = eqParam(url, 'id');
+        const patch = body();
+        state.attendees = state.attendees.map((a) => (a.id === id ? { ...a, ...patch } : a));
+        return json(state.attendees.filter((a) => a.id === id));
+      }
+      if (method === 'POST') return json(null);
+      const rollCallOnly = url.searchParams.get('roll_call') === 'eq.true';
+      return json(rollCallOnly ? state.attendees.filter((a) => (a as Record<string, unknown>).roll_call) : state.attendees);
+    }
+    if (path === '/rest/v1/event_tables') {
+      return json([{ id: 't1', table_no: 1, capacity: 10, label: '貴賓桌' }, { id: 't5', table_no: 5, capacity: 10, label: null }]);
+    }
     if (path === '/rest/v1/attendee_greetings') return json(state.greetings);
     if (path === '/rest/v1/pickup_items') return json(state.pickupItems ?? []);
     if (path === '/rest/v1/fee_invoices') return json([]);
@@ -127,6 +139,7 @@ export async function mockSupabase(page: Page, state: MockState): Promise<void> 
       return json(state.links ?? []);
     }
     if (path === '/rest/v1/rpc/import_people_by_category') return json({ ok: true, inserted: 1, skipped: 0 });
+    if (path === '/rest/v1/rpc/import_guests') return json({ ok: true, inserted: 2, skipped: 0, tables_created: 0 });
     if (path === '/rest/v1/rpc/import_members') return json({ ok: true, created: 2, merged: 1, categories_created: 2, links_added: 4 });
     if (path === '/rest/v1/rpc/undo_checkin') return json({ ok: true });
     if (path === '/rest/v1/rpc/add_walkin') return json({ ok: true });

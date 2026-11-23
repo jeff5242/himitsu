@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { decodeCsvBytes, parseGuestCsv, planGuestImport } from '../../lib/guestCsv';
 import type { GuestImportPlan, GuestRowError, TableOccupancy } from '../../lib/guestCsv';
 import type { Attendee, Organization, OrgEvent } from '../../lib/types';
+import { seatsOf } from '../../lib/seats';
 
 interface GuestImportCardProps {
   org: Organization;
@@ -19,7 +20,7 @@ interface Preview {
 }
 
 const FALLBACK_TABLE_CAPACITY = 10;
-const TEMPLATE_CSV = '﻿姓名,單位,身分,桌號\n王小明,米屋智農,貴賓,1\n陳大華,後壁鄉,農民,5\n林阿土,,農民,\n';
+const TEMPLATE_CSV = '\uFEFF姓名,任職單位,職稱,聯絡手機,葷素,攜伴人數,身分,唱名,桌號\n王小明,米屋智農,董事長,0912345678,素,1,貴賓,是,1\n陳大華,二林鎮,,,葷,0,農民,,5\n林阿土,芳苑鄉,,,葷,2,農民,,\n';
 
 const RPC_ERRORS: Record<string, string> = {
   forbidden: '沒有名單編輯權限（需負責人／秘書長／秘書）',
@@ -46,7 +47,7 @@ async function loadTableOccupancy(org: Organization, event: OrgEvent, attendees:
   if (error) throw new Error(`讀取桌次失敗：${error.message}`);
   const seated = new Map<number, number>();
   for (const a of attendees) {
-    if (!a.removed_at && a.table_no !== null) seated.set(a.table_no, (seated.get(a.table_no) ?? 0) + 1);
+    if (!a.removed_at && a.table_no !== null) seated.set(a.table_no, (seated.get(a.table_no) ?? 0) + seatsOf(a));
   }
   const tables = (tableRows ?? []).map((t: { table_no: number; capacity: number }) => ({
     tableNo: t.table_no, capacity: t.capacity, seated: seated.get(t.table_no) ?? 0,
@@ -88,6 +89,7 @@ export default function GuestImportCard({ org, event, attendees, onDone }: Guest
     try {
       const rows = preview.plan.toInsert.map((r) => ({
         line: r.line, name: r.name, org: r.org, tag: r.tag, table_no: r.tableNo,
+        title: r.title, mobile: r.mobile, diet: r.diet, companions: r.companions, roll_call: r.rollCall,
       }));
       const { data, error } = await supabase.rpc('import_guests', { p_event: event.id, p_rows: rows });
       const result = data as { ok: boolean; error?: string; detail?: string;
@@ -112,13 +114,13 @@ export default function GuestImportCard({ org, event, attendees, onDone }: Guest
     <section className="bg-white rounded-xl shadow p-4 space-y-2 text-sm sm:col-span-2">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="font-bold">CSV 匯入來賓</h3>
-        <span className="text-xs text-stone-500">欄位：姓名（必填）、單位、身分（例：貴賓／農民）、桌號</span>
+        <span className="text-xs text-stone-500">欄位：姓名（必填）、任職單位、職稱、聯絡手機、葷素、攜伴人數、身分、唱名（是／留白）、桌號</span>
         <button type="button" onClick={downloadTemplate} className="ml-auto text-xs text-amber-700 underline">
           下載範本
         </button>
       </div>
       <p className="text-xs text-stone-500">
-        Excel 用「另存新檔」存成 CSV 即可。桌號不存在會自動建桌；同姓名＋同單位已在名單的人會略過。
+        Excel 用「另存新檔」存成 CSV 即可。桌號不存在會自動建桌；每位佔「本人＋攜伴」個座位；同姓名＋同單位已在名單的人會略過。
       </p>
       <input type="file" accept=".csv,text/csv" disabled={isBusy} onChange={(e) => void handleFile(e)}
         aria-label="選擇 CSV 檔" className="block text-sm" />
@@ -140,7 +142,7 @@ export default function GuestImportCard({ org, event, attendees, onDone }: Guest
           {plan.overflows.length > 0 && (
             <ul className="rounded bg-red-50 border border-red-200 px-3 py-2 text-red-700">
               {plan.overflows.map((o) => (
-                <li key={o.tableNo}>桌 {o.tableNo} 會坐 {o.total} 人，超過容量 {o.capacity}——請改桌號，或先到「桌次」調大容量</li>
+                <li key={o.tableNo}>桌 {o.tableNo} 會用 {o.total} 個座位（含攜伴），超過容量 {o.capacity}——請改桌號，或先到「桌次」調大容量</li>
               ))}
             </ul>
           )}
@@ -148,7 +150,7 @@ export default function GuestImportCard({ org, event, attendees, onDone }: Guest
             <div className="max-h-56 overflow-auto">
               <table className="w-full text-xs">
                 <thead className="text-left text-stone-500">
-                  <tr><th className="py-1 pr-2">列</th><th className="pr-2">姓名</th><th className="pr-2">單位</th><th className="pr-2">身分</th><th>桌號</th></tr>
+                  <tr><th className="py-1 pr-2">列</th><th className="pr-2">姓名</th><th className="pr-2">單位</th><th className="pr-2">職稱</th><th className="pr-2">身分</th><th className="pr-2">葷素</th><th className="pr-2">攜伴</th><th className="pr-2">唱名</th><th>桌號</th></tr>
                 </thead>
                 <tbody>
                   {plan.toInsert.map((r) => (
@@ -156,7 +158,11 @@ export default function GuestImportCard({ org, event, attendees, onDone }: Guest
                       <td className="py-1 pr-2 font-mono text-stone-400">{r.line}</td>
                       <td className="pr-2">{r.name}</td>
                       <td className="pr-2 text-stone-500">{r.org ?? ''}</td>
+                      <td className="pr-2">{r.title ?? ''}</td>
                       <td className="pr-2">{r.tag ?? ''}</td>
+                      <td className="pr-2">{r.diet ?? ''}</td>
+                      <td className="pr-2 tabular-nums">{r.companions > 0 ? `+${r.companions}` : ''}</td>
+                      <td className="pr-2">{r.rollCall ? '★' : ''}</td>
                       <td>{r.tableNo ?? ''}</td>
                     </tr>
                   ))}
