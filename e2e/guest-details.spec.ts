@@ -91,3 +91,27 @@ test('桌次每排桌數依設定（6 桌一排）', async ({ page }) => {
   await page.getByRole('button', { name: '平面圖' }).click();
   await expect(page.locator('div.grid.gap-6').first()).toHaveAttribute('style', /repeat\(6, /);
 });
+
+test('唱名名單練習預覽：未報到的唱名貴賓也列出，已唱名不留紀錄、不寫入', async ({ page }) => {
+  const state = base();
+  state.attendees = [
+    { ...guest('李總', '彰化縣農會', '貴賓', 1, false), seq_no: 2, roll_call: true } as never,
+    { ...guest('王董', '米屋智農', '貴賓', 1, false), seq_no: 1, roll_call: true } as never,
+  ];
+  await mockSupabase(page, state);
+  await loginAs(page);
+  await page.goto('/o/miwu/events/ev-1/roll-call');
+  await expect(page.getByText('有唱名資格的貴賓報到後')).toBeVisible();
+
+  await page.getByLabel('🧪 練習預覽').check();
+  const names = page.locator('ol li p.text-4xl');
+  await expect(names).toHaveText(['王董', '李總']);
+  await page.locator('ol li').first().getByRole('button', { name: '✓ 已唱名' }).click();
+  await expect(page.locator('ol li').first().getByRole('button', { name: '↺ 取消' })).toBeVisible();
+
+  await page.getByLabel('🧪 練習預覽').uncheck();
+  await expect(names).toHaveCount(0);
+  await page.getByLabel('🧪 練習預覽').check();
+  await expect(page.locator('ol li').first().getByRole('button', { name: '✓ 已唱名' })).toBeVisible();
+  expect(state.writes).toEqual([]);
+});

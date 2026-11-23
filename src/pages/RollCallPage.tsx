@@ -34,6 +34,9 @@ export default function RollCallPage() {
   const [called, setCalled] = useState<ReadonlySet<string>>(() => loadCalled(eventId ?? ''));
   const [hideCalled, setHideCalled] = useState(false);
   const [showWaiting, setShowWaiting] = useState(false);
+  // 練習預覽：全部當作已到場；「已唱名」另存記憶體，不碰正式的已唱名紀錄
+  const [isPreview, setIsPreview] = useState(false);
+  const [previewCalled, setPreviewCalled] = useState<ReadonlySet<string>>(new Set());
 
   const reload = useCallback(async () => {
     if (!org || !eventId) return;
@@ -51,15 +54,22 @@ export default function RollCallPage() {
     return () => clearInterval(timer);
   }, [reload]);
 
-  const { ready, waiting } = useMemo(() => rollCallList(attendees), [attendees]);
-  const visible = hideCalled ? ready.filter((a) => !called.has(a.id)) : ready;
+  const { ready, waiting } = useMemo(() => rollCallList(attendees, { preview: isPreview }), [attendees, isPreview]);
+  const calledSet = isPreview ? previewCalled : called;
+  const visible = hideCalled ? ready.filter((a) => !calledSet.has(a.id)) : ready;
 
   const toggleCalled = (id: string) => {
-    const next = new Set(called);
+    const next = new Set(calledSet);
     if (next.has(id)) next.delete(id);
     else next.add(id);
+    if (isPreview) { setPreviewCalled(next); return; }
     setCalled(next);
     saveCalled(eventId ?? '', next);
+  };
+
+  const togglePreview = (on: boolean) => {
+    setIsPreview(on);
+    setPreviewCalled(new Set());
   };
 
   if (isLoading || !org) return <main className="min-h-screen bg-stone-950" />;
@@ -73,21 +83,30 @@ export default function RollCallPage() {
           <h1 className="text-4xl font-black tracking-widest text-amber-300">📣 唱名名單</h1>
         </div>
         <p className="text-2xl text-stone-300 tabular-nums">
-          已到 <b className="text-amber-300">{ready.length}</b>／有唱名資格 {ready.length + waiting.length} 位
-          {called.size > 0 && <span className="ml-3 text-lg text-stone-500">已唱名 {ready.filter((a) => called.has(a.id)).length}</span>}
+          {isPreview ? '預覽' : '已到'} <b className="text-amber-300">{ready.length}</b>／有唱名資格 {ready.length + waiting.length} 位
+          {calledSet.size > 0 && <span className="ml-3 text-lg text-stone-500">已唱名 {ready.filter((a) => calledSet.has(a.id)).length}</span>}
         </p>
-        <label className="ml-auto inline-flex items-center gap-2 text-stone-400">
+        <label className="ml-auto inline-flex items-center gap-2 text-sky-300">
+          <input type="checkbox" checked={isPreview} onChange={(e) => togglePreview(e.target.checked)} className="h-5 w-5" />
+          🧪 練習預覽
+        </label>
+        <label className="inline-flex items-center gap-2 text-stone-400">
           <input type="checkbox" checked={hideCalled} onChange={(e) => setHideCalled(e.target.checked)} className="h-5 w-5" />
           隱藏已唱名
         </label>
       </header>
 
+      {isPreview && (
+        <p className="mb-4 rounded-xl border-2 border-dashed border-sky-400 bg-sky-950 px-4 py-3 text-lg text-sky-200">
+          🧪 練習預覽：所有勾了唱名的貴賓都當作已到場，讓主持人先練順序。這裡的「已唱名」不會留下紀錄；關掉預覽就回到正式名單。
+        </p>
+      )}
       {ready.length === 0 && (
         <p className="py-20 text-center text-2xl text-stone-500">有唱名資格的貴賓報到後，會依名單順序出現在這裡。</p>
       )}
       <ol className="space-y-3">
         {visible.map((a, index) => {
-          const isCalled = called.has(a.id);
+          const isCalled = calledSet.has(a.id);
           const subtitle = [a.guest_title ?? a.identities?.title, attendeeAffiliation(a)].filter(Boolean).join('・');
           return (
             <li key={a.id}

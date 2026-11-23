@@ -47,3 +47,18 @@ describe('rollCallList', () => {
     expect(list.waiting.map((x) => x.guest_name)).toEqual(['二號（未到）']);
   });
 });
+
+describe('rollCallList preview', () => {
+  test('treats every guest with 唱名資格 as arrived, in roster order, without changing the data', () => {
+    const attendees = [
+      a({ seq_no: 2, roll_call: true, guest_name: '二號（未到）' }),
+      a({ seq_no: 1, roll_call: true, checked_in_at: '2026-12-20T11:20:00Z', guest_name: '一號' }),
+      a({ seq_no: 3, roll_call: false, guest_name: '三號（不唱名）' }),
+    ];
+    const list = rollCallList(attendees, { preview: true });
+    expect(list.ready.map((x) => x.guest_name)).toEqual(['一號', '二號（未到）']);
+    expect(list.waiting).toEqual([]);
+    expect(attendees[0].checked_in_at).toBeNull();
+  });
+});
+

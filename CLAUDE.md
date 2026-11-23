@@ -59,4 +59,5 @@ EPIC-1 已全數驗收（SQL 測試全 PASS＋正式站人工實測；桌次追�
 - [x] L23 功能開關 —— migration `20261123000015_feature_switches.sql`（features.members／features.devices 入冊、features.fees 說明更新、未接畫面的 voting/checkin/line_notify 標註「切換沒有作用」）＋`useOrgFeatures`：關閉後隱藏選單、會員/會費/裝置頁顯示關閉說明、名單頁會員匯入卡、報到卡未繳提示、設定頁會員編號/人員分類/會費項目；協會清單主按鈕改「活動」；米屋三項已關（貼 SQL 時一併設定）
 - [x] L24 來賓詳細欄位＋唱名 —— migration `20261123000016_guest_details.sql`（event_attendees 加 guest_title/guest_mobile/diet/companions/roll_call；座位＝1＋攜伴：table_seats_used、滿桌/縮桌/互換守衛改座位數；import_guests_core 帶新欄位）＋測試 `guest_details_test_results.sql`（D1~D8）＋CSV 新欄位（任職單位/職稱/聯絡手機/葷素/攜伴人數/唱名）、加來賓表單、名單編輯與★唱名、報到卡/貴賓卡/歡迎卡顯示、桌次含攜伴座位與素食份數、`/roll-call` 唱名名單（已報到＋有資格、依序號、已唱名記本機）
 - [x] L25 桌次每排桌數＋貴賓畫面隱藏唱名 —— migration `20261123000017_tables_per_row.sql`（設定 assembly.tables_per_row，0＝自動、1～12）＋`useTablesPerRow`／`tableGridStyle` 套用圓桌卡、平面圖、現場投影頁；貴賓報到畫面（給貴賓看）不顯示 ★唱名
+- [x] L26 唱名名單練習預覽 —— `rollCallList(…, { preview })` 全部有唱名資格者當已到；預覽的已唱名只在記憶體、不碰正式紀錄、零寫入（E2E）
 - SQL 測試可在本機跑：docker 起 `public.ecr.aws/supabase/postgres` 後須補 GoTrue 欄位與新版 auth.uid()（讀 request.jwt.claims），否則權限檢查全失敗
