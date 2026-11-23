@@ -5,6 +5,8 @@ import { supabase } from '../../lib/supabase';
 import { attendeeName } from '../../lib/attendee';
 import { seatsOf, seatsUsed, vegetarianSeats } from '../../lib/seats';
 import TableFloorView from './TableFloorView';
+import { useTablesPerRow } from '../../hooks/useTablesPerRow';
+import { tableGridStyle } from '../../lib/tableLayout';
 import type { Attendee, Organization, OrgEvent } from '../../lib/types';
 
 type TableView = 'cards' | 'floor' | 'list';
@@ -39,6 +41,7 @@ export default function TablesTab({ org, event, attendees, canWrite, onChanged }
   const [tables, setTables] = useState<EventTable[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [view, setView] = useState<TableView>(() => loadViewPreference(org.id));
+  const perRow = useTablesPerRow(org.id);
 
   const changeView = (next: TableView) => {
     setView(next);
@@ -141,7 +144,7 @@ export default function TablesTab({ org, event, attendees, canWrite, onChanged }
 
       {view === 'floor' && (
         <div className="bg-white rounded-xl shadow p-6">
-          <TableFloorView tables={tables} byTable={byTable} onSelect={() => changeView('cards')} />
+          <TableFloorView tables={tables} byTable={byTable} perRow={perRow} onSelect={() => changeView('cards')} />
           <p className="text-xs text-stone-400 mt-4">
             ● 綠＝已報到、灰＝已入座未報到、空心＝空位；攜伴各佔一個點。點桌子切回圓桌卡操作。滑鼠停在點上可看姓名。
           </p>
@@ -174,7 +177,7 @@ export default function TablesTab({ org, event, attendees, canWrite, onChanged }
         </section>
       )}
 
-      {view === 'cards' && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {view === 'cards' && <div className="overflow-x-auto"><div className="grid gap-3" style={tableGridStyle(perRow, perRow > 0 ? 150 : 240)}>
         {tables.map((table) => {
           const seated = byTable.get(table.table_no) ?? [];
           const used = seatsUsed(seated);
@@ -251,7 +254,10 @@ export default function TablesTab({ org, event, attendees, canWrite, onChanged }
             </section>
           );
         })}
-      </div>}
+      </div></div>}
+      {perRow > 0 && view !== 'list' && (
+        <p className="text-xs text-stone-400">依設定每排 {perRow} 桌；畫面太窄時可以左右捲動。到「設定 → 大會 → 桌次每排桌數」可以修改。</p>
+      )}
       {tables.length === 0 && (
         <p className="text-sm text-stone-400">還沒有桌次——先建桌，容量預設吃設定中心的「每桌人數」。</p>
       )}

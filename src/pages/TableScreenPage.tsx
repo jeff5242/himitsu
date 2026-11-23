@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase';
 import { useOrg } from '../hooks/useOrg';
 import { attendeeName } from '../lib/attendee';
 import TableFloorView from '../components/event/TableFloorView';
+import { useTablesPerRow } from '../hooks/useTablesPerRow';
+import { tableGridStyle } from '../lib/tableLayout';
 import type { EventTable } from '../components/event/TablesTab';
 import type { Attendee, OrgEvent } from '../lib/types';
 
@@ -28,6 +30,7 @@ export default function TableScreenPage() {
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [query, setQuery] = useState('');
   const [view, setView] = useState<ScreenView>(loadScreenView);
+  const perRow = useTablesPerRow(org?.id);
 
   const changeView = (next: ScreenView) => {
     setView(next);
@@ -88,11 +91,11 @@ export default function TableScreenPage() {
       </div>
 
       {view === 'floor' && (
-        <TableFloorView tables={tables} byTable={byTable} isDark query={highlight} />
+        <TableFloorView tables={tables} byTable={byTable} isDark query={highlight} perRow={perRow} />
       )}
 
       {view === 'list' && (
-      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
+      <div className="grid gap-4" style={tableGridStyle(perRow, perRow > 0 ? 160 : 240)}>
         {tables.map((table) => {
           const seated = byTable.get(table.table_no) ?? [];
           return (

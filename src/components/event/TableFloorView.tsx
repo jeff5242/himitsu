@@ -1,10 +1,13 @@
 import { useMemo } from 'react';
 import { attendeeName } from '../../lib/attendee';
 import { seatsOf, seatsUsed } from '../../lib/seats';
+import { tableGridStyle } from '../../lib/tableLayout';
 import type { Attendee } from '../../lib/types';
 import type { EventTable } from './TablesTab';
 
 interface TableFloorViewProps {
+  /** 每排幾桌；0 或省略＝依寬度自動 */
+  perRow?: number;
   tables: EventTable[];
   byTable: ReadonlyMap<number, Attendee[]>;
   /** 深色（投影頁用） */
@@ -17,7 +20,7 @@ interface TableFloorViewProps {
 const SEAT_RADIUS_PERCENT = 44;
 
 /** 宴會廳平面圖：圓桌＋環狀座位點——綠＝已報到、實灰＝入座未報到、空心＝空位 */
-export default function TableFloorView({ tables, byTable, isDark, query, onSelect }: TableFloorViewProps) {
+export default function TableFloorView({ tables, byTable, isDark, query, onSelect, perRow = 0 }: TableFloorViewProps) {
   const keyword = (query ?? '').trim();
 
   const seatDots = useMemo(() => {
@@ -36,7 +39,7 @@ export default function TableFloorView({ tables, byTable, isDark, query, onSelec
   }, [tables, byTable]);
 
   return (
-    <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))' }}>
+    <div className="overflow-x-auto"><div className="grid gap-6" style={tableGridStyle(perRow, perRow > 0 ? 130 : 170)}>
       {tables.map((table) => {
         const seated = byTable.get(table.table_no) ?? [];
         const used = seatsUsed(seated);
@@ -91,6 +94,6 @@ export default function TableFloorView({ tables, byTable, isDark, query, onSelec
           </button>
         );
       })}
-    </div>
+    </div></div>
   );
 }

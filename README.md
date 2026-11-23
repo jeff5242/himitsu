@@ -42,6 +42,7 @@ npm install
    - `..._member_import.sql`（會員 CSV 匯入：合併既有、自動建分類）
    - `..._feature_switches.sql`（功能開關：會員／會費／裝置可各自關閉隱藏）
    - `..._guest_details.sql`（來賓職稱/手機/葷素/攜伴/唱名；攜伴佔座位）
+   - `..._tables_per_row.sql`（設定：桌次每排桌數）
 5. 驗證：貼上執行 `supabase/tests/` 下的測試（結果表格版直接看 Results；`*_results.sql` 優先）
 
 ### 3. 啟動與示範資料（3 分鐘）

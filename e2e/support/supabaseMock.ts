@@ -57,6 +57,7 @@ export interface MockState {
   rpcBodies?: Record<string, unknown[]>;
   orgSettings?: { org_id: string; key: string; value: unknown }[];
   catalog?: Record<string, unknown>[];
+  settingValues?: Record<string, unknown>;
 }
 
 /** PostgREST 查詢參數 `col=eq.value` 取值 */
@@ -145,6 +146,7 @@ export async function mockSupabase(page: Page, state: MockState): Promise<void> 
     if (path === '/rest/v1/rpc/add_walkin') return json({ ok: true });
     if (path === '/rest/v1/rpc/get_setting') {
       const { p_key: key } = body() as { p_key: string };
+      if (state.settingValues && key in state.settingValues) return json(state.settingValues[key]);
       return json(key === 'vip.greeting_phrases' ? ['生意興隆，年年有餘', '風調雨順，五穀豐收'] : null);
     }
     if (path === '/rest/v1/rpc/check_in') {

@@ -212,7 +212,6 @@ function VipCard({ entry, isQueued, canCheckin, onCheckIn, onReopen }: VipCardPr
       <p className="text-lg">
         🍽️ {attendee.table_no !== null ? `第 ${attendee.table_no} 桌` : '未排桌'}
         {(attendee.companions ?? 0) > 0 && <span className="ml-2 text-base text-sky-700">攜伴 {attendee.companions}</span>}
-        {attendee.roll_call && <span className="ml-2 text-base text-amber-700">★ 唱名</span>}
       </p>
       {done ? (
         <button type="button" onClick={onReopen}

@@ -67,3 +67,27 @@ test('攜伴佔座位：桌次顯示含攜伴人數與素食份數', async ({ pa
   await expect(table1.getByText('素 3')).toBeVisible();
   await expect(table1.getByText('王董＋2')).toBeVisible();
 });
+
+test('貴賓報到畫面（給貴賓看）不顯示唱名', async ({ page }) => {
+  const state = base();
+  state.attendees = [{ ...guest('王董', '米屋智農', '貴賓', 1), roll_call: true, guest_title: '董事長' } as never];
+  await mockSupabase(page, state);
+  await loginAs(page);
+  await page.goto('/o/miwu/events/ev-1/vip');
+  await expect(page.locator('article', { hasText: '王董' })).toContainText('董事長・米屋智農');
+  await expect(page.getByText('★ 唱名')).toHaveCount(0);
+});
+
+test('桌次每排桌數依設定（6 桌一排）', async ({ page }) => {
+  const state = { ...base(), settingValues: { 'assembly.tables_per_row': 6 } };
+  await mockSupabase(page, state);
+  await loginAs(page);
+  await page.goto('/o/miwu/events/ev-1');
+  await page.getByRole('button', { name: '桌次' }).click();
+  await page.getByRole('button', { name: '圓桌卡' }).click();
+  await expect(page.getByText('依設定每排 6 桌')).toBeVisible();
+  const grid = page.locator('div.grid.gap-3').first();
+  await expect(grid).toHaveAttribute('style', /repeat\(6, minmax\(150px, 1fr\)\)/);
+  await page.getByRole('button', { name: '平面圖' }).click();
+  await expect(page.locator('div.grid.gap-6').first()).toHaveAttribute('style', /repeat\(6, /);
+});
