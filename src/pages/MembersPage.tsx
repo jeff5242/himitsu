@@ -4,6 +4,8 @@ import { Link, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useOrg } from '../hooks/useOrg';
 import OrgLayout from '../components/OrgLayout';
+import FeatureOffNotice from '../components/FeatureOffNotice';
+import { useOrgFeatures } from '../hooks/useOrgFeatures';
 import PersonCard from '../components/PersonCard';
 import MemberImportCard from '../components/MemberImportCard';
 import { categoryCounts, filterPersonsByCategory, sortCategories } from '../lib/personCategories';
@@ -18,6 +20,7 @@ import type { PersonWithDetails } from '../lib/types';
 export default function MembersPage() {
   const { slug } = useParams();
   const { org, myRole, can, isLoading, error } = useOrg(slug);
+  const features = useOrgFeatures(org?.id);
   const [persons, setPersons] = useState<PersonWithDetails[]>([]);
   const [categories, setCategories] = useState<PersonCategory[]>([]);
   const [links, setLinks] = useState<CategoryLink[]>([]);
@@ -65,6 +68,13 @@ export default function MembersPage() {
 
   if (isLoading) return <p className="p-8 text-stone-400">載入中…</p>;
   if (error || !org) return <p className="p-8 text-red-600">{error ?? '找不到協會'}</p>;
+  if (!features.members) {
+    return (
+      <OrgLayout org={org} myRole={myRole}>
+        <FeatureOffNotice orgSlug={org.slug} featureLabel="會員" />
+      </OrgLayout>
+    );
+  }
 
   const hasWritePerm = can('persons.write');
 

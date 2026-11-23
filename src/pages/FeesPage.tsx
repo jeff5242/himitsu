@@ -4,6 +4,8 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useOrg } from '../hooks/useOrg';
 import OrgLayout from '../components/OrgLayout';
+import FeatureOffNotice from '../components/FeatureOffNotice';
+import { useOrgFeatures } from '../hooks/useOrgFeatures';
 import InvoiceRow from '../components/fees/InvoiceRow';
 import type { FeeInvoice, FeePeriod } from '../components/fees/feeTypes';
 
@@ -11,6 +13,7 @@ import type { FeeInvoice, FeePeriod } from '../components/fees/feeTypes';
 export default function FeesPage() {
   const { slug } = useParams();
   const { org, myRole, can, isLoading, error } = useOrg(slug);
+  const features = useOrgFeatures(org?.id);
   const [periods, setPeriods] = useState<FeePeriod[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [invoices, setInvoices] = useState<FeeInvoice[]>([]);
@@ -62,6 +65,13 @@ export default function FeesPage() {
 
   if (isLoading) return <p className="p-8 text-stone-400">載入中…</p>;
   if (error || !org) return <p className="p-8 text-red-600">{error ?? '找不到協會'}</p>;
+  if (!features.fees) {
+    return (
+      <OrgLayout org={org} myRole={myRole}>
+        <FeatureOffNotice orgSlug={org.slug} featureLabel="會費" />
+      </OrgLayout>
+    );
+  }
 
   return (
     <OrgLayout org={org} myRole={myRole}>

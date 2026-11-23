@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { attendeeAffiliation, attendeeName, categoryLabel } from '../../lib/attendee';
 import GuestImportCard from './GuestImportCard';
 import ImportByCategoryCard from './ImportByCategoryCard';
+import { useOrgFeatures } from '../../hooks/useOrgFeatures';
 import { KIND_LABELS, STATUS_LABELS } from '../../lib/labels';
 import type { Attendee, MembershipStatus, Organization, OrgEvent } from '../../lib/types';
 
@@ -21,6 +22,7 @@ const IMPORTABLE_STATUSES: MembershipStatus[] = ['active', 'renewal_due', 'honor
 export default function RosterTab({ org, event, attendees, canWrite, onChanged }: RosterTabProps) {
   const [query, setQuery] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
+  const features = useOrgFeatures(org.id);
 
   const active = useMemo(() => attendees.filter((a) => !a.removed_at), [attendees]);
   const removed = useMemo(() => attendees.filter((a) => a.removed_at), [attendees]);
@@ -54,8 +56,8 @@ export default function RosterTab({ org, event, attendees, canWrite, onChanged }
     <div className="space-y-4">
       {canWrite && event.status !== 'closed' && (
         <div className="grid gap-3 sm:grid-cols-2">
-          <ImportMembersCard org={org} event={event} attendees={attendees} onDone={onChanged} />
-          <ImportByCategoryCard org={org} event={event} onDone={onChanged} />
+          {features.members && <ImportMembersCard org={org} event={event} attendees={attendees} onDone={onChanged} />}
+          {features.members && <ImportByCategoryCard org={org} event={event} onDone={onChanged} />}
           <AddGuestCard org={org} event={event} onDone={onChanged} />
           <PickupItemsCard org={org} event={event} />
           <GuestImportCard org={org} event={event} attendees={attendees} onDone={onChanged} />

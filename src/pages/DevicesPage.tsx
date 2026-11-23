@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useOrg } from '../hooks/useOrg';
 import OrgLayout from '../components/OrgLayout';
+import FeatureOffNotice from '../components/FeatureOffNotice';
+import { useOrgFeatures } from '../hooks/useOrgFeatures';
 import DeviceRow from '../components/devices/DeviceRow';
 import type { Device } from '../components/devices/deviceTypes';
 import type { OrgEvent } from '../lib/types';
@@ -13,6 +15,7 @@ const REFRESH_MS = 15_000;
 export default function DevicesPage() {
   const { slug } = useParams();
   const { org, myRole, can, isLoading, error } = useOrg(slug);
+  const features = useOrgFeatures(org?.id);
   const [devices, setDevices] = useState<Device[]>([]);
   const [events, setEvents] = useState<OrgEvent[]>([]);
   const [code, setCode] = useState<{ value: string; expiresAt: string } | null>(null);
@@ -38,6 +41,13 @@ export default function DevicesPage() {
 
   if (isLoading) return <p className="p-8 text-stone-400">載入中…</p>;
   if (error || !org) return <p className="p-8 text-red-600">{error ?? '找不到協會'}</p>;
+  if (!features.devices) {
+    return (
+      <OrgLayout org={org} myRole={myRole}>
+        <FeatureOffNotice orgSlug={org.slug} featureLabel="裝置" />
+      </OrgLayout>
+    );
+  }
 
   const createCode = async () => {
     const { data, error: rpcError } = await supabase.rpc('create_device_code', { p_org: org.id });

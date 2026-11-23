@@ -40,6 +40,7 @@ npm install
    - `..._vip_greetings.sql`（貴賓報到祝福詞＋手寫簽名、祝福牆資料源）
    - `..._person_categories.sql`（會員庫人員分類、成員單位、依分類匯入活動名單）
    - `..._member_import.sql`（會員 CSV 匯入：合併既有、自動建分類）
+   - `..._feature_switches.sql`（功能開關：會員／會費／裝置可各自關閉隱藏）
 5. 驗證：貼上執行 `supabase/tests/` 下的測試（結果表格版直接看 Results；`*_results.sql` 優先）
 
 ### 3. 啟動與示範資料（3 分鐘）

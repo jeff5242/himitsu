@@ -55,6 +55,8 @@ export interface MockState {
   categories?: { id: string; name: string; sort: number }[];
   links?: { person_id: string; category_id: string }[];
   rpcBodies?: Record<string, unknown[]>;
+  orgSettings?: { org_id: string; key: string; value: unknown }[];
+  catalog?: Record<string, unknown>[];
 }
 
 /** PostgREST 查詢參數 `col=eq.value` 取值 */
@@ -99,7 +101,8 @@ export async function mockSupabase(page: Page, state: MockState): Promise<void> 
     if (path === '/rest/v1/pickup_items') return json(state.pickupItems ?? []);
     if (path === '/rest/v1/fee_invoices') return json([]);
     if (path === '/rest/v1/attendee_pickups') return json(method === 'GET' ? [] : null);
-    if (path === '/rest/v1/settings_catalog' || path === '/rest/v1/org_settings') return json([]);
+    if (path === '/rest/v1/settings_catalog') return json(state.catalog ?? []);
+    if (path === '/rest/v1/org_settings') return json(method === 'GET' ? state.orgSettings ?? [] : null);
     if (path === '/rest/v1/persons') return json(state.persons ?? []);
     if (path === '/rest/v1/person_categories') {
       if (method === 'POST') {

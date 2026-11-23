@@ -4,15 +4,23 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import type { Organization } from '../lib/types';
+import { FEATURE_KEYS } from '../lib/features';
 
 export default function OrgListPage() {
   const { session } = useAuth();
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // 關閉「會員」功能的協會：主按鈕改進「活動」
+  const [membersOff, setMembersOff] = useState<ReadonlySet<string>>(new Set());
 
   const reload = useCallback(async () => {
-    const { data } = await supabase.from('organizations').select('*').order('created_at');
+    const [{ data }, { data: flagRows }] = await Promise.all([
+      supabase.from('organizations').select('*').order('created_at'),
+      supabase.from('org_settings').select('org_id, value').eq('key', FEATURE_KEYS.members),
+    ]);
     setOrgs(data ?? []);
+    setMembersOff(new Set(((flagRows ?? []) as { org_id: string; value: unknown }[])
+      .filter((r) => r.value === false).map((r) => r.org_id)));
     setIsLoading(false);
   }, []);
 
@@ -50,10 +58,10 @@ export default function OrgListPage() {
                 </div>
                 <div className="flex gap-2 text-sm">
                   <Link
-                    to={`/o/${org.slug}/members`}
+                    to={`/o/${org.slug}/${membersOff.has(org.id) ? 'events' : 'members'}`}
                     className="rounded bg-amber-600 px-3 py-1.5 text-white hover:bg-amber-700"
                   >
-                    會員
+                    {membersOff.has(org.id) ? '活動' : '會員'}
                   </Link>
                   <Link
                     to={`/o/${org.slug}/team`}

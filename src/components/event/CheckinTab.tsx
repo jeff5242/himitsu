@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useCheckinQueue } from '../../hooks/useCheckinQueue';
 import type { PersonGroup } from '../../lib/attendee';
 import CheckinDesk from './CheckinDesk';
+import { useOrgFeatures } from '../../hooks/useOrgFeatures';
 import type { Channel } from './CheckinDesk';
 import type { Attendee, Organization, OrgEvent } from '../../lib/types';
 
@@ -18,6 +19,8 @@ interface PickupRecord {
   attendee_id: string;
   item_key: string;
 }
+
+const NO_UNPAID: ReadonlySet<string> = new Set();
 
 const ERROR_LABELS: Record<string, string> = {
   forbidden: '沒有報到權限',
@@ -40,6 +43,7 @@ export default function CheckinTab({ org, event, attendees, canCheckin, onChange
   const [pickups, setPickups] = useState<PickupRecord[]>([]);
   const [unpaidMemberships, setUnpaidMemberships] = useState<ReadonlySet<string>>(new Set());
   const [requiresPaid, setRequiresPaid] = useState(false);
+  const features = useOrgFeatures(org.id);
 
   const reloadPickups = useCallback(async () => {
     const [{ data: itemRows }, { data: pickupRows }, { data: unpaidRows }, { data: requirePaidValue }] =
@@ -131,7 +135,7 @@ export default function CheckinTab({ org, event, attendees, canCheckin, onChange
 
   return (
     <CheckinDesk attendees={attendees} items={items} issuedPickups={issuedPickups}
-      unpaidMemberships={unpaidMemberships} requiresPaid={requiresPaid}
+      unpaidMemberships={features.fees ? unpaidMemberships : NO_UNPAID} requiresPaid={features.fees && requiresPaid}
       queuedIds={queuedIds} isOnline={isOnline} pendingCount={pendingCount} canCheckin={canCheckin}
       onFlush={() => void flush()} onCheckInGroup={checkInGroup} onUndo={undo}
       onTogglePickup={togglePickup} onAddWalkin={addWalkin} />

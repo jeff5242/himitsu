@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth';
 import { ROLE_LABELS } from '../lib/roles';
 import type { Role } from '../lib/roles';
 import type { Organization } from '../lib/types';
+import { useOrgFeatures } from '../hooks/useOrgFeatures';
 
 interface OrgLayoutProps {
   org: Organization;
@@ -17,6 +18,7 @@ const TAB_CLASS = ({ isActive }: { isActive: boolean }) =>
 
 export default function OrgLayout({ org, myRole, children }: OrgLayoutProps) {
   const { session } = useAuth();
+  const features = useOrgFeatures(org.id);
   const themeColor = typeof org.theme?.primary_color === 'string' ? org.theme.primary_color : undefined;
 
   return (
@@ -38,10 +40,10 @@ export default function OrgLayout({ org, myRole, children }: OrgLayoutProps) {
             </span>
           )}
           <nav className="flex gap-1 ml-2">
-            <NavLink to={`/o/${org.slug}/members`} className={TAB_CLASS}>會員</NavLink>
+            {features.members && <NavLink to={`/o/${org.slug}/members`} className={TAB_CLASS}>會員</NavLink>}
             <NavLink to={`/o/${org.slug}/events`} className={TAB_CLASS}>活動</NavLink>
-            <NavLink to={`/o/${org.slug}/fees`} className={TAB_CLASS}>會費</NavLink>
-            <NavLink to={`/o/${org.slug}/devices`} className={TAB_CLASS}>裝置</NavLink>
+            {features.fees && <NavLink to={`/o/${org.slug}/fees`} className={TAB_CLASS}>會費</NavLink>}
+            {features.devices && <NavLink to={`/o/${org.slug}/devices`} className={TAB_CLASS}>裝置</NavLink>}
             <NavLink to={`/o/${org.slug}/team`} className={TAB_CLASS}>團隊</NavLink>
             <NavLink to={`/o/${org.slug}/settings`} className={TAB_CLASS}>設定</NavLink>
           </nav>
