@@ -115,3 +115,19 @@ test('唱名名單練習預覽：未報到的唱名貴賓也列出，已唱名�
   await expect(page.locator('ol li').first().getByRole('button', { name: '✓ 已唱名' })).toBeVisible();
   expect(state.writes).toEqual([]);
 });
+
+test('活動頁全版寬：每排 6 桌的平面圖不必左右捲動', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 900 });
+  const state = { ...base(), settingValues: { 'assembly.tables_per_row': 6 } };
+  await mockSupabase(page, state);
+  await loginAs(page);
+  await page.goto('/o/miwu/events/ev-1');
+  await page.getByRole('button', { name: '桌次' }).click();
+  await page.getByRole('button', { name: '平面圖' }).click();
+  const scroller = page.locator('div.overflow-x-auto', { has: page.locator('div.grid.gap-6') }).first();
+  await expect(scroller).toBeVisible();
+  const { scrollWidth, clientWidth } = await scroller.evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
+  expect(clientWidth).toBeGreaterThan(1400);
+  expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  await page.screenshot({ path: test.info().outputPath('floor-wide.png') });
+});

@@ -58,7 +58,7 @@ export default function EventPage() {
   };
 
   return (
-    <OrgLayout org={org} myRole={myRole}>
+    <OrgLayout org={org} myRole={myRole} isWide>
       <div className="flex flex-wrap items-center gap-3">
         <Link to={`/o/${org.slug}/events`} className="text-sm text-stone-400 hover:text-stone-600">← 活動</Link>
         <h2 className="text-lg font-bold">{event.name}</h2>
