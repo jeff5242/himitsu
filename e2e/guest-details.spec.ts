@@ -178,3 +178,27 @@ test('名單搜尋：手機（含連字號、末碼）、葷素、桌號、唱�
   await expectOnly('第5桌', '李總');
   await expectOnly('唱名', '王董');
 });
+
+test('只看不按：隱藏標記按鈕、仍看得到進度、重新整理後保留；關掉就能接手', async ({ page }) => {
+  const state = base();
+  state.attendees = [
+    { ...guest('王董', '米屋智農', '貴賓', 1, true), seq_no: 1, roll_call: true, called_at: '2027-01-08T04:00:00Z' } as never,
+    { ...guest('李總', '彰化縣農會', '貴賓', 1, true), seq_no: 2, roll_call: true } as never,
+  ];
+  await mockSupabase(page, state);
+  await loginAs(page);
+  await page.goto('/o/miwu/events/ev-1/roll-call');
+  await page.getByLabel('👀 只看不按').check();
+  await expect(page.getByRole('button', { name: '✓ 已唱名' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '↺ 取消' })).toHaveCount(0);
+  await expect(page.locator('ol li').first().getByText('✓ 已唱名')).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByLabel('👀 只看不按')).toBeChecked();
+  await expect(page.getByRole('button', { name: '✓ 已唱名' })).toHaveCount(0);
+  expect(state.writes).toEqual([]);
+
+  await page.getByLabel('👀 只看不按').uncheck();
+  await page.locator('ol li').nth(1).getByRole('button', { name: '✓ 已唱名' }).click();
+  expect(state.rpcBodies?.['/rest/v1/rpc/set_called']).toEqual([{ p_attendee: state.attendees[1].id, p_called: true }]);
+});

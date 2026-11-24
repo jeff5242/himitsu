@@ -10,6 +10,16 @@ const ATTENDEE_SELECT =
   '*, identities(id, kind, title, persons(id, name, mobile), legal_entities(name), memberships(id, member_no, status))';
 // 多台裝置（主持人平板、控台電腦）同步唱名進度
 const REFRESH_MS = 5_000;
+// 「只看不按」記在這台裝置（主持人平板、投影畫面打開；中控沒電時任何一台關掉就能接手）
+const VIEW_ONLY_KEY = 'himitsu:rollcall:view-only';
+
+function loadViewOnly(): boolean {
+  try { return localStorage.getItem(VIEW_ONLY_KEY) === '1'; } catch { return false; }
+}
+
+function saveViewOnly(isOn: boolean) {
+  try { localStorage.setItem(VIEW_ONLY_KEY, isOn ? '1' : '0'); } catch { /* 私密視窗等環境：只在本次有效 */ }
+}
 
 /** 主持人唱名名單：有唱名資格且已報到者，依名單順序；「已唱名」存資料庫，多台裝置同步 */
 export default function RollCallPage() {
@@ -23,6 +33,7 @@ export default function RollCallPage() {
   const [isPreview, setIsPreview] = useState(false);
   const [previewCalled, setPreviewCalled] = useState<ReadonlySet<string>>(new Set());
   const [notice, setNotice] = useState<string | null>(null);
+  const [isViewOnly, setIsViewOnly] = useState(loadViewOnly);
 
   const reload = useCallback(async () => {
     if (!org || !eventId) return;
@@ -67,6 +78,11 @@ export default function RollCallPage() {
     setNotice(null);
   };
 
+  const toggleViewOnly = (isOn: boolean) => {
+    setIsViewOnly(isOn);
+    saveViewOnly(isOn);
+  };
+
   const togglePreview = (on: boolean) => {
     setIsPreview(on);
     setPreviewCalled(new Set());
@@ -89,6 +105,10 @@ export default function RollCallPage() {
         <label className="ml-auto inline-flex items-center gap-2 text-sky-300">
           <input type="checkbox" checked={isPreview} onChange={(e) => togglePreview(e.target.checked)} className="h-5 w-5" />
           🧪 練習預覽
+        </label>
+        <label className="inline-flex items-center gap-2 text-emerald-300">
+          <input type="checkbox" checked={isViewOnly} onChange={(e) => toggleViewOnly(e.target.checked)} className="h-5 w-5" />
+          👀 只看不按
         </label>
         <label className="inline-flex items-center gap-2 text-stone-400">
           <input type="checkbox" checked={hideCalled} onChange={(e) => setHideCalled(e.target.checked)} className="h-5 w-5" />
@@ -119,11 +139,15 @@ export default function RollCallPage() {
                 {subtitle && <p className="mt-1 text-xl text-stone-400">{subtitle}</p>}
               </div>
               {a.table_no !== null && <span className="text-xl text-stone-400">第 {a.table_no} 桌</span>}
-              <button type="button" onClick={() => void toggleCalled(a.id)} aria-pressed={isCalled}
-                className={`rounded-xl px-5 py-3 text-lg font-bold ${isCalled
-                  ? 'border border-stone-600 text-stone-400' : 'bg-amber-400 text-stone-900'}`}>
-                {isCalled ? '↺ 取消' : '✓ 已唱名'}
-              </button>
+              {isViewOnly ? (
+                isCalled && <span className="text-lg text-stone-500">✓ 已唱名</span>
+              ) : (
+                <button type="button" onClick={() => void toggleCalled(a.id)} aria-pressed={isCalled}
+                  className={`rounded-xl px-5 py-3 text-lg font-bold ${isCalled
+                    ? 'border border-stone-600 text-stone-400' : 'bg-amber-400 text-stone-900'}`}>
+                  {isCalled ? '↺ 取消' : '✓ 已唱名'}
+                </button>
+              )}
             </li>
           );
         })}
@@ -141,7 +165,7 @@ export default function RollCallPage() {
           )}
         </section>
       )}
-      <p className="mt-8 text-sm text-stone-600">名單與「已唱名」每 5 秒自動更新，每台裝置看到的進度都一樣。</p>
+      <p className="mt-8 text-sm text-stone-600">名單與「已唱名」每 5 秒自動更新，每台裝置看到的進度都一樣。{isViewOnly && '這台裝置設為「只看不按」，不能改唱名進度。'}</p>
     </main>
   );
 }
