@@ -131,3 +131,50 @@ test('活動頁全版寬：每排 6 桌的平面圖不必左右捲動', async ({
   expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
   await page.screenshot({ path: test.info().outputPath('floor-wide.png') });
 });
+
+test('已唱名存進資料庫：電腦按了，平板（另一台裝置）也看到同樣進度', async ({ page, browser }) => {
+  const state = base();
+  state.attendees = [
+    { ...guest('王董', '米屋智農', '貴賓', 1, true), seq_no: 1, roll_call: true } as never,
+    { ...guest('李總', '彰化縣農會', '貴賓', 1, true), seq_no: 2, roll_call: true } as never,
+  ];
+  await mockSupabase(page, state);
+  await loginAs(page);
+  await page.goto('/o/miwu/events/ev-1/roll-call');
+  await page.locator('ol li').first().getByRole('button', { name: '✓ 已唱名' }).click();
+  await expect(page.locator('ol li').first().getByRole('button', { name: '↺ 取消' })).toBeVisible();
+  expect(state.rpcBodies?.['/rest/v1/rpc/set_called']).toEqual([{ p_attendee: state.attendees[0].id, p_called: true }]);
+
+  // 另開一個瀏覽器環境＝另一台裝置（不共用 localStorage）
+  const tabletContext = await browser.newContext();
+  const tablet = await tabletContext.newPage();
+  await mockSupabase(tablet, state);
+  await loginAs(tablet);
+  await tablet.goto(new URL('/o/miwu/events/ev-1/roll-call', page.url()).toString());
+  await expect(tablet.locator('ol li').first().getByRole('button', { name: '↺ 取消' })).toBeVisible();
+  await expect(tablet.locator('ol li').nth(1).getByRole('button', { name: '✓ 已唱名' })).toBeVisible();
+  await expect(tablet.getByText('已唱名 1')).toBeVisible();
+  await tabletContext.close();
+});
+
+test('名單搜尋：手機（含連字號、末碼）、葷素、桌號、唱名都能搜', async ({ page }) => {
+  const state = base();
+  state.attendees = [
+    { ...guest('王董', '米屋智農', '貴賓', 1, false), seq_no: 1, guest_mobile: '0912345678', diet: '素', roll_call: true } as never,
+    { ...guest('李總', '彰化縣農會', '貴賓', 5, false), seq_no: 2, guest_mobile: '0933444555', diet: '葷' } as never,
+  ];
+  await mockSupabase(page, state);
+  await loginAs(page);
+  await page.goto('/o/miwu/events/ev-1');
+  const search = page.getByLabel('搜尋名單');
+  const expectOnly = async (query: string, name: string) => {
+    await search.fill(query);
+    await expect(page.getByText(name, { exact: true })).toBeVisible();
+    await expect(page.getByText(name === '王董' ? '李總' : '王董', { exact: true })).toHaveCount(0);
+  };
+  await expectOnly('0912-345', '王董');
+  await expectOnly('4555', '李總');
+  await expectOnly('素', '王董');
+  await expectOnly('第5桌', '李總');
+  await expectOnly('唱名', '王董');
+});

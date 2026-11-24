@@ -142,6 +142,12 @@ export async function mockSupabase(page: Page, state: MockState): Promise<void> 
     if (path === '/rest/v1/rpc/import_people_by_category') return json({ ok: true, inserted: 1, skipped: 0 });
     if (path === '/rest/v1/rpc/import_guests') return json({ ok: true, inserted: 2, skipped: 0, tables_created: 0 });
     if (path === '/rest/v1/rpc/import_members') return json({ ok: true, created: 2, merged: 1, categories_created: 2, links_added: 4 });
+    if (path === '/rest/v1/rpc/set_called') {
+      const { p_attendee: id, p_called: isCalled } = body() as { p_attendee: string; p_called: boolean };
+      state.attendees = state.attendees.map((a) => (a.id === id
+        ? { ...a, called_at: isCalled ? '2027-01-08T04:00:00Z' : null } : a));
+      return json({ ok: true });
+    }
     if (path === '/rest/v1/rpc/undo_checkin') return json({ ok: true });
     if (path === '/rest/v1/rpc/add_walkin') return json({ ok: true });
     if (path === '/rest/v1/rpc/get_setting') {

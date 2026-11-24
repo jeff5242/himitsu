@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { ATTENDEE_SEARCH_PLACEHOLDER, matchesAttendeeQuery } from '../../lib/attendeeSearch';
 import type { FormEvent, ReactNode } from 'react';
 import { attendeeAffiliation, categoryLabel, groupByPerson } from '../../lib/attendee';
 import type { PersonGroup } from '../../lib/attendee';
@@ -43,20 +44,10 @@ export default function CheckinDesk(props: CheckinDeskProps) {
   const [notice, setNotice] = useState<string | null>(null);
 
   const groups = useMemo(() => groupByPerson(attendees), [attendees]);
-  const visibleGroups = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
-    if (!keyword) return groups;
-    return groups.filter((g) =>
-      g.name.toLowerCase().includes(keyword) ||
-      g.mobile?.includes(keyword) ||
-      g.attendees.some((a) =>
-        String(a.seq_no) === keyword ||
-        (attendeeAffiliation(a) ?? '').toLowerCase().includes(keyword) ||
-        (a.guest_tag ?? '').toLowerCase().includes(keyword) ||
-        a.identities?.memberships.some((m) => m.member_no.toLowerCase().includes(keyword)),
-      ),
-    );
-  }, [groups, query]);
+  const visibleGroups = useMemo(
+    () => groups.filter((g) => g.attendees.some((a) => matchesAttendeeQuery(a, query))),
+    [groups, query],
+  );
 
   const run = async (action: () => Promise<string | null>) => {
     setNotice(null);
@@ -69,7 +60,7 @@ export default function CheckinDesk(props: CheckinDeskProps) {
       {props.banner}
       <div className="flex flex-wrap items-center gap-3">
         <input value={query} onChange={(e) => setQuery(e.target.value)} autoFocus
-          placeholder="搜尋姓名／手機／序號／編號／公司／身分…" aria-label="搜尋名單"
+          placeholder={ATTENDEE_SEARCH_PLACEHOLDER} aria-label="搜尋名單"
           className="flex-1 min-w-64 rounded border border-stone-300 px-3 py-3 text-base" />
         <span className="flex rounded border border-stone-300 overflow-hidden text-sm">
           {(Object.keys(CHANNEL_LABELS) as Channel[]).map((c) => (

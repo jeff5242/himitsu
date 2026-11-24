@@ -6,6 +6,7 @@ import GuestImportCard from './GuestImportCard';
 import ImportByCategoryCard from './ImportByCategoryCard';
 import GuestDetailEditor from './GuestDetailEditor';
 import { isVegetarian } from '../../lib/seats';
+import { ATTENDEE_SEARCH_PLACEHOLDER, matchesAttendeeQuery } from '../../lib/attendeeSearch';
 import { useOrgFeatures } from '../../hooks/useOrgFeatures';
 import { KIND_LABELS, STATUS_LABELS } from '../../lib/labels';
 import type { Attendee, MembershipStatus, Organization, OrgEvent } from '../../lib/types';
@@ -29,21 +30,7 @@ export default function RosterTab({ org, event, attendees, canWrite, onChanged }
   const active = useMemo(() => attendees.filter((a) => !a.removed_at), [attendees]);
   const removed = useMemo(() => attendees.filter((a) => a.removed_at), [attendees]);
 
-  const visible = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
-    if (!keyword) return active;
-    return active.filter((a) => {
-      const name = attendeeName(a).toLowerCase();
-      const affiliation = (attendeeAffiliation(a) ?? '').toLowerCase();
-      const memberNo = a.identities?.memberships[0]?.member_no.toLowerCase() ?? '';
-      const tag = (a.guest_tag ?? '').toLowerCase();
-      const title = (a.guest_title ?? '').toLowerCase();
-      return (
-        name.includes(keyword) || affiliation.includes(keyword) || tag.includes(keyword) || title.includes(keyword) ||
-        memberNo.includes(keyword) || String(a.seq_no) === keyword
-      );
-    });
-  }, [active, query]);
+  const visible = useMemo(() => active.filter((a) => matchesAttendeeQuery(a, query)), [active, query]);
 
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -78,7 +65,7 @@ export default function RosterTab({ org, event, attendees, canWrite, onChanged }
 
       <div className="flex flex-wrap items-center gap-3">
         <input value={query} onChange={(e) => setQuery(e.target.value)}
-          placeholder="搜尋姓名／公司／職稱／身分／會員編號／序號…"
+          placeholder={ATTENDEE_SEARCH_PLACEHOLDER} aria-label="搜尋名單"
           className="flex-1 min-w-56 rounded border border-stone-300 px-3 py-2 text-sm" />
         <span className="text-sm text-stone-500">
           名單 {active.length} 人{removed.length > 0 && `（另有 ${removed.length} 個缺號）`}

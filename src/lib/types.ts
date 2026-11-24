@@ -99,6 +99,8 @@ export interface OrgEvent {
 export type AttendeeCategory = 'member' | 'guest' | 'walkin';
 
 /** 出席名單列（巢狀帶出身分→自然人/法人/會籍，供報到卡按 person 聚合） */
+export type RsvpStatus = 'attending' | 'declined';
+
 export interface Attendee {
   id: string;
   event_id: string;
@@ -117,6 +119,13 @@ export interface Attendee {
   /** 攜伴人數（不含本人）；佔座位＝1＋攜伴 */
   companions?: number;
   roll_call?: boolean;
+  /** L28 邀請卡：專屬連結 token、回覆狀態（null＝尚未回覆） */
+  invite_token?: string;
+  rsvp_status?: RsvpStatus | null;
+  rsvp_at?: string | null;
+  rsvp_note?: string | null;
+  /** L29 已唱名時間（多台裝置同步） */
+  called_at?: string | null;
   category: AttendeeCategory;
   table_no: number | null;
   source: 'import' | 'manual' | 'walkin';

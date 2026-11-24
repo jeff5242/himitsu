@@ -8,35 +8,21 @@ import type { Attendee, OrgEvent } from '../lib/types';
 
 const ATTENDEE_SELECT =
   '*, identities(id, kind, title, persons(id, name, mobile), legal_entities(name), memberships(id, member_no, status))';
-const REFRESH_MS = 15_000;
+// 多台裝置（主持人平板、控台電腦）同步唱名進度
+const REFRESH_MS = 5_000;
 
-const storageKey = (eventId: string) => `himitsu:rollcall:${eventId}`;
-
-function loadCalled(eventId: string): Set<string> {
-  try {
-    const raw = localStorage.getItem(storageKey(eventId));
-    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function saveCalled(eventId: string, called: ReadonlySet<string>) {
-  try { localStorage.setItem(storageKey(eventId), JSON.stringify([...called])); } catch { /* 私密視窗等環境忽略 */ }
-}
-
-/** 主持人唱名名單：有唱名資格且已報到者，依名單順序；「已唱名」記在這台裝置 */
+/** 主持人唱名名單：有唱名資格且已報到者，依名單順序；「已唱名」存資料庫，多台裝置同步 */
 export default function RollCallPage() {
   const { slug, eventId } = useParams();
   const { org, isLoading } = useOrg(slug);
   const [event, setEvent] = useState<OrgEvent | null>(null);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
-  const [called, setCalled] = useState<ReadonlySet<string>>(() => loadCalled(eventId ?? ''));
   const [hideCalled, setHideCalled] = useState(false);
   const [showWaiting, setShowWaiting] = useState(false);
   // 練習預覽：全部當作已到場；「已唱名」另存記憶體，不碰正式的已唱名紀錄
   const [isPreview, setIsPreview] = useState(false);
   const [previewCalled, setPreviewCalled] = useState<ReadonlySet<string>>(new Set());
+  const [notice, setNotice] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     if (!org || !eventId) return;
@@ -55,16 +41,30 @@ export default function RollCallPage() {
   }, [reload]);
 
   const { ready, waiting } = useMemo(() => rollCallList(attendees, { preview: isPreview }), [attendees, isPreview]);
+  const called = useMemo(
+    () => new Set(attendees.filter((a) => a.called_at).map((a) => a.id)) as ReadonlySet<string>,
+    [attendees],
+  );
   const calledSet = isPreview ? previewCalled : called;
   const visible = hideCalled ? ready.filter((a) => !calledSet.has(a.id)) : ready;
 
-  const toggleCalled = (id: string) => {
+  const toggleCalled = async (id: string) => {
     const next = new Set(calledSet);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
+    const willCall = !next.has(id);
+    if (willCall) next.add(id);
+    else next.delete(id);
     if (isPreview) { setPreviewCalled(next); return; }
-    setCalled(next);
-    saveCalled(eventId ?? '', next);
+    // 先改畫面，再寫資料庫；失敗時重新讀取以資料庫為準
+    const calledAt = willCall ? new Date().toISOString() : null;
+    setAttendees((rows) => rows.map((a) => (a.id === id ? { ...a, called_at: calledAt } : a)));
+    const { data, error } = await supabase.rpc('set_called', { p_attendee: id, p_called: willCall });
+    const result = data as { ok: boolean; error?: string } | null;
+    if (error || !result?.ok) {
+      setNotice(result?.error === 'forbidden' ? '沒有報到權限，不能標記已唱名' : '標記失敗，請再按一次');
+      await reload();
+      return;
+    }
+    setNotice(null);
   };
 
   const togglePreview = (on: boolean) => {
@@ -101,6 +101,7 @@ export default function RollCallPage() {
           🧪 練習預覽：所有勾了唱名的貴賓都當作已到場，讓主持人先練順序。這裡的「已唱名」不會留下紀錄；關掉預覽就回到正式名單。
         </p>
       )}
+      {notice && <p className="mb-4 rounded-xl bg-red-950 px-4 py-3 text-lg text-red-200">{notice}</p>}
       {ready.length === 0 && (
         <p className="py-20 text-center text-2xl text-stone-500">有唱名資格的貴賓報到後，會依名單順序出現在這裡。</p>
       )}
@@ -118,7 +119,7 @@ export default function RollCallPage() {
                 {subtitle && <p className="mt-1 text-xl text-stone-400">{subtitle}</p>}
               </div>
               {a.table_no !== null && <span className="text-xl text-stone-400">第 {a.table_no} 桌</span>}
-              <button type="button" onClick={() => toggleCalled(a.id)} aria-pressed={isCalled}
+              <button type="button" onClick={() => void toggleCalled(a.id)} aria-pressed={isCalled}
                 className={`rounded-xl px-5 py-3 text-lg font-bold ${isCalled
                   ? 'border border-stone-600 text-stone-400' : 'bg-amber-400 text-stone-900'}`}>
                 {isCalled ? '↺ 取消' : '✓ 已唱名'}
@@ -140,7 +141,7 @@ export default function RollCallPage() {
           )}
         </section>
       )}
-      <p className="mt-8 text-sm text-stone-600">名單每 15 秒自動更新；「已唱名」只記在這台裝置。</p>
+      <p className="mt-8 text-sm text-stone-600">名單與「已唱名」每 5 秒自動更新，每台裝置看到的進度都一樣。</p>
     </main>
   );
 }
